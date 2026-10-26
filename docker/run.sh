@@ -29,6 +29,7 @@ fi
 exec docker run -it --rm --init \
   "${GPU_ARGS[@]}" \
   --name 3d-path-planner \
+  --add-host=host.docker.internal:host-gateway \
   -p 8765:8765 \
   -v "$ROOT:/workspace" \
   -v "$(pwd)/docker/.tmux.conf:/root/.tmux.conf:ro" \

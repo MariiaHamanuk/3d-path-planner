@@ -9,6 +9,16 @@ windows:
       panes:
         - gz sim -v 4 -s -r simulation/worlds/default.world
 
+  - ardupilot:
+      panes:
+        # MAVProxy console: `mode guided`, `arm throttle`, `takeoff 5`, ...
+        # QGC (on the host) gets MAVLink on UDP 14550; override host with QGC_HOST
+        - >
+          mkdir -p /tmp/sitl && cd /tmp/sitl &&
+          sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON -w --no-rebuild
+          --add-param-file=/workspace/src/scripts/bebop.parm
+          --out=udp:${QGC_HOST:-host.docker.internal}:14550
+
   - bridge:
       panes:
         - >
