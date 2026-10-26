@@ -22,8 +22,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         gstreamer1.0-plugins-bad gstreamer1.0-libav gstreamer1.0-gl \
     && rm -rf /var/lib/apt/lists/*
 
+# numpy<2 keeps the apt numpy (pip can't uninstall it) and stays ABI-compatible with ROS
 RUN pip3 install --no-cache-dir --break-system-packages \
-        empy==3.3.4 pexpect future pymavlink MAVProxy
+        "numpy<2" empy==3.3.4 pexpect future pymavlink MAVProxy
 
 RUN git clone --depth 1 --branch Copter-4.5.7 --recurse-submodules --shallow-submodules -j8 \
         https://github.com/ArduPilot/ardupilot /opt/ardupilot && \
