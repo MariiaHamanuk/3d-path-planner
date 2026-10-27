@@ -65,7 +65,7 @@ mode land
 type UDP, listening port `14550`. On Linux, allow UDP 14550 through the host firewall.
 Use `QGC_HOST=<ip> ./src/scripts/start.sh` if QGC runs on another machine.
 
-Depth: `/depth_camera` (32FC1, meters, 640x480, hfov 1.047 rad, range 0.1-200 m) and `/depth_camera/points` (PointCloud2), same viewpoint as `/camera`.
+Depth: `/depth_camera` (32FC1, meters, 320x240, hfov 1.047 rad, range 0.1-200 m) and `/depth_camera/points` (PointCloud2), same viewpoint as `/camera`.
 
 Extra ArduCopter params live in `src/scripts/bebop.parm` (starting values, not tuned).
 
