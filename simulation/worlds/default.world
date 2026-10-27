@@ -34,11 +34,11 @@
       <heading_deg>0</heading_deg>
       <surface_model>EARTH_WGS84</surface_model>
     </spherical_coordinates>
-    <!-- for gui -->
-    <!-- <plugin
+    <!-- publishes /stats and /world/<name>/stats (real_time_factor); also needed for gui -->
+    <plugin
       filename="gz-sim-scene-broadcaster-system"
       name="gz::sim::systems::SceneBroadcaster">
-    </plugin> -->
+    </plugin>
 
     <light type="directional" name="sun">
       <cast_shadows>true</cast_shadows>
