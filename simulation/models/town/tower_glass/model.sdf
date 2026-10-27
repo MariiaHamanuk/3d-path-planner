@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="tower_glass">
+    <static>true</static>
+    <link name="link">
+      <visual name="walls">
+        <pose>0 0 15.0 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>18 18 30</size></box></geometry>
+          <material>
+            <ambient>1 1 1 1</ambient>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr><metal>
+              <albedo_map>textures/tower_glass_facade_color.jpg</albedo_map>
+              <normal_map>textures/tower_glass_facade_normal.jpg</normal_map>
+              <roughness>0.3</roughness><metalness>0.3</metalness>
+            </metal></pbr>
+          </material>
+      </visual>
+      <visual name="roof">
+        <pose>0 0 30.25 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>18.2 18.2 0.5</size></box></geometry>
+          <material>
+            <ambient>1 1 1 1</ambient>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr><metal>
+              <albedo_map>textures/tower_glass_roof_color.jpg</albedo_map>
+              <roughness>0.95</roughness><metalness>0.0</metalness>
+            </metal></pbr>
+          </material>
+      </visual>
+      <collision name="collision">
+        <pose>0 0 15.25 0 0 0</pose>
+        <geometry><box><size>18 18 30.5</size></box></geometry>
+      </collision>
+    </link>
+  </model>
+</sdf>

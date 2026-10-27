@@ -1,0 +1,914 @@
+<?xml version="1.0"?>
+<!--
+  vo_town: photorealistic small-town world for UAV visual-odometry testing.
+  200 x 200 m, static geometry; the drone is included at the bottom.
+  Generated assets live in models/town (referenced as model://town/...); textures are CC0 from ambientCG.com.
+  Run via src/scripts/start.sh -w city (see models/town/README.md).
+-->
+<sdf version="1.9">
+  <world name="city">
+    <physics name="1ms" type="ignore">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1</real_time_factor>
+    </physics>
+    <plugin name="gz::sim::systems::Physics" filename="gz-sim-physics-system"/>
+    <plugin name="gz::sim::systems::Sensors" filename="gz-sim-sensors-system">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin name="gz::sim::systems::UserCommands" filename="gz-sim-user-commands-system"/>
+    <plugin name="gz::sim::systems::SceneBroadcaster" filename="gz-sim-scene-broadcaster-system"/>
+    <plugin name="gz::sim::systems::Imu" filename="gz-sim-imu-system"/>
+    <plugin name="gz::sim::systems::NavSat" filename="gz-sim-navsat-system"/>
+
+    <scene>
+      <ambient>0.65 0.65 0.65 1</ambient>
+      <background>0.55 0.7 0.9 1</background>
+      <sky/>
+      <shadows>false</shadows>
+    </scene>
+
+    <spherical_coordinates>
+      <latitude_deg>-35.363262</latitude_deg>
+      <longitude_deg>149.165237</longitude_deg>
+      <elevation>584</elevation>
+      <heading_deg>0</heading_deg>
+      <surface_model>EARTH_WGS84</surface_model>
+    </spherical_coordinates>
+    <gravity>0 0 -9.8</gravity>
+    <magnetic_field>5.5645e-06 2.28758e-05 -4.23884e-05</magnetic_field>
+    <atmosphere type="adiabatic"/>
+
+    <!-- single directional sun, no shadow maps (performance) -->
+    <light name="sun" type="directional">
+      <cast_shadows>false</cast_shadows>
+      <pose>0 0 100 0 0 0</pose>
+      <diffuse>0.9 0.88 0.82 1</diffuse>
+      <specular>0.3 0.3 0.3 1</specular>
+      <direction>-0.45 0.15 -0.88</direction>
+      <intensity>1.0</intensity>
+    </light>
+
+    <!-- flat ground collision for the whole 200x200 area (visuals come from ground_* quadrants) -->
+    <model name="ground_collision">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <plane><normal>0 0 1</normal><size>200 200</size></plane>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <include>
+      <uri>model://town/ground_a</uri>
+      <name>ground_a</name>
+      <pose>50 50 0.001 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/ground_b</uri>
+      <name>ground_b</name>
+      <pose>-50 50 0.001 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/ground_c</uri>
+      <name>ground_c</name>
+      <pose>-50 -50 0.001 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/ground_d</uri>
+      <name>ground_d</name>
+      <pose>50 -50 0.001 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ns_1</name>
+      <pose>-52 -89 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ns_2</name>
+      <pose>-52 -67 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ns_3</name>
+      <pose>-52 -37 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ns_4</name>
+      <pose>-52 -15 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ns_5</name>
+      <pose>-52 15 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ns_6</name>
+      <pose>-52 37 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ns_7</name>
+      <pose>-52 67 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ns_8</name>
+      <pose>-52 89 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ns_9</name>
+      <pose>0 -89 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ns_10</name>
+      <pose>0 -67 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ns_11</name>
+      <pose>0 -37 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ns_12</name>
+      <pose>0 -15 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ns_13</name>
+      <pose>0 15 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ns_14</name>
+      <pose>0 37 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ns_15</name>
+      <pose>0 67 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ns_16</name>
+      <pose>0 89 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ns_17</name>
+      <pose>52 -89 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ns_18</name>
+      <pose>52 -67 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ns_19</name>
+      <pose>52 -37 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ns_20</name>
+      <pose>52 -15 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ns_21</name>
+      <pose>52 15 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ns_22</name>
+      <pose>52 37 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ns_23</name>
+      <pose>52 67 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ns_24</name>
+      <pose>52 89 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ew_25</name>
+      <pose>-89 -52 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ew_26</name>
+      <pose>-67 -52 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ew_27</name>
+      <pose>-37 -52 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ew_28</name>
+      <pose>-15 -52 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ew_29</name>
+      <pose>15 -52 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ew_30</name>
+      <pose>37 -52 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ew_31</name>
+      <pose>67 -52 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ew_32</name>
+      <pose>89 -52 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ew_33</name>
+      <pose>-89 0 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ew_34</name>
+      <pose>-67 0 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ew_35</name>
+      <pose>-37 0 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ew_36</name>
+      <pose>-15 0 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ew_37</name>
+      <pose>15 0 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ew_38</name>
+      <pose>37 0 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ew_39</name>
+      <pose>67 0 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ew_40</name>
+      <pose>89 0 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ew_41</name>
+      <pose>-89 52 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ew_42</name>
+      <pose>-67 52 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ew_43</name>
+      <pose>-37 52 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ew_44</name>
+      <pose>-15 52 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ew_45</name>
+      <pose>15 52 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ew_46</name>
+      <pose>37 52 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_b</uri>
+      <name>road_ew_47</name>
+      <pose>67 52 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_straight_a</uri>
+      <name>road_ew_48</name>
+      <pose>89 52 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/road_intersection</uri>
+      <name>intersection_00</name>
+      <pose>-52 -52 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_intersection</uri>
+      <name>intersection_01</name>
+      <pose>-52 0 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_intersection</uri>
+      <name>intersection_02</name>
+      <pose>-52 52 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_intersection</uri>
+      <name>intersection_10</name>
+      <pose>0 -52 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_intersection</uri>
+      <name>intersection_11</name>
+      <pose>0 0 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_intersection</uri>
+      <name>intersection_12</name>
+      <pose>0 52 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_intersection</uri>
+      <name>intersection_20</name>
+      <pose>52 -52 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_intersection</uri>
+      <name>intersection_21</name>
+      <pose>52 0 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/road_intersection</uri>
+      <name>intersection_22</name>
+      <pose>52 52 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/tower_glass</uri>
+      <name>tower</name>
+      <pose>22 22 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/parking_lot</uri>
+      <name>parking_ne</name>
+      <pose>38 14 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/midrise_office</uri>
+      <name>office_nw</name>
+      <pose>-26 30 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/shop_row</uri>
+      <name>shops_nw</name>
+      <pose>-26 13 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/midrise_dark</uri>
+      <name>midrise_dark</name>
+      <pose>-29 -29 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/civic_hall</uri>
+      <name>civic_hall</name>
+      <pose>-26 -13 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/shop_row</uri>
+      <name>shops_se</name>
+      <pose>26 -11 0.0 0 0 3.141592653589793</pose>
+    </include>
+    <include>
+      <uri>model://town/parking_lot</uri>
+      <name>parking_se</name>
+      <pose>38 -30 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/house_two_story</uri>
+      <name>h2_se</name>
+      <pose>14 -38 0.0 0 0 0.2</pose>
+    </include>
+    <include>
+      <uri>model://town/midrise_office</uri>
+      <name>office_n</name>
+      <pose>26 80 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/house_two_story</uri>
+      <name>h2_n1</name>
+      <pose>-18 72 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/house_brick_a</uri>
+      <name>hba_n1</name>
+      <pose>-35 75 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/house_plaster</uri>
+      <name>hpl_n1</name>
+      <pose>-24 90 0.0 0 0 0.1</pose>
+    </include>
+    <include>
+      <uri>model://town/house_brick_a</uri>
+      <name>hba_e1</name>
+      <pose>70 15 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/house_plaster</uri>
+      <name>hpl_e1</name>
+      <pose>88 20 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/house_brick_b</uri>
+      <name>hbb_e1</name>
+      <pose>75 38 0.0 0 0 0.26</pose>
+    </include>
+    <include>
+      <uri>model://town/warehouse</uri>
+      <name>warehouse_e</name>
+      <pose>80 -26 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/house_two_story</uri>
+      <name>h2_ne</name>
+      <pose>70 70 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/house_brick_a</uri>
+      <name>hba_ne</name>
+      <pose>88 75 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/house_plaster</uri>
+      <name>hpl_ne</name>
+      <pose>75 90 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/house_brick_b</uri>
+      <name>hbb_nw</name>
+      <pose>-70 70 0.0 0 0 0.7</pose>
+    </include>
+    <include>
+      <uri>model://town/house_plaster</uri>
+      <name>hpl_nw</name>
+      <pose>-88 78 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/house_brick_a</uri>
+      <name>hba_nw</name>
+      <pose>-74 90 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/house_brick_b</uri>
+      <name>hbb_se</name>
+      <pose>70 -70 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/house_plaster</uri>
+      <name>hpl_se2</name>
+      <pose>88 -72 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/house_brick_a</uri>
+      <name>hba_se</name>
+      <pose>72 -90 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/house_two_story</uri>
+      <name>h2_sw</name>
+      <pose>-70 -70 0.0 0 0 3.141592653589793</pose>
+    </include>
+    <include>
+      <uri>model://town/house_brick_a</uri>
+      <name>hba_sw</name>
+      <pose>-88 -75 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/house_brick_b</uri>
+      <name>hbb_sw</name>
+      <pose>-72 -90 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/shop_row</uri>
+      <name>shops_w</name>
+      <pose>-79 15 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/house_two_story</uri>
+      <name>h2_w</name>
+      <pose>-79 35 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/warehouse</uri>
+      <name>warehouse_w</name>
+      <pose>-79 -28 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/house_plaster</uri>
+      <name>hpl_s1</name>
+      <pose>16 -70 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/house_brick_b</uri>
+      <name>hbb_s1</name>
+      <pose>36 -72 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/house_two_story</uri>
+      <name>h2_s1</name>
+      <pose>24 -90 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/shop_row</uri>
+      <name>shops_s</name>
+      <pose>-26 -70 0.0 0 0 3.141592653589793</pose>
+    </include>
+    <include>
+      <uri>model://town/house_brick_a</uri>
+      <name>hba_s2</name>
+      <pose>-14 -88 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/house_plaster</uri>
+      <name>hpl_s2</name>
+      <pose>-38 -88 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_0</name>
+      <pose>8.2 20 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_1</name>
+      <pose>8.2 34 0.0 0 0 0.83</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_2</name>
+      <pose>-8.2 26 0.0 0 0 1.66</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_3</name>
+      <pose>-8.2 42 0.0 0 0 2.4899999999999998</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_4</name>
+      <pose>8.2 -20 0.0 0 0 3.32</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_5</name>
+      <pose>-8.2 -34 0.0 0 0 4.1499999999999995</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_6</name>
+      <pose>20 8.2 0.0 0 0 4.9799999999999995</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_7</name>
+      <pose>34 -8.2 0.0 0 0 5.81</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_8</name>
+      <pose>-22 8.2 0.0 0 0 0.35999999999999943</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_9</name>
+      <pose>-38 -8.2 0.0 0 0 1.1899999999999995</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_10</name>
+      <pose>44 8.2 0.0 0 0 2.0199999999999987</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_11</name>
+      <pose>-44 -8.2 0.0 0 0 2.8499999999999988</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_12</name>
+      <pose>60.5 30 0.0 0 0 3.679999999999999</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_13</name>
+      <pose>60.5 -12 0.0 0 0 4.509999999999999</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_14</name>
+      <pose>-60.5 44 0.0 0 0 5.339999999999999</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_15</name>
+      <pose>-60.5 -44 0.0 0 0 6.169999999999999</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_16</name>
+      <pose>30 60.5 0.0 0 0 0.7199999999999989</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_17</name>
+      <pose>-14 60.5 0.0 0 0 1.549999999999999</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_18</name>
+      <pose>-34 -60.5 0.0 0 0 2.379999999999999</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_19</name>
+      <pose>12 -60.5 0.0 0 0 3.209999999999999</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_20</name>
+      <pose>85 88 0.0 0 0 4.039999999999997</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_21</name>
+      <pose>-85 60 0.0 0 0 4.869999999999999</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_22</name>
+      <pose>92 -60 0.0 0 0 5.6999999999999975</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_23</name>
+      <pose>-92 -85 0.0 0 0 0.2499999999999991</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_24</name>
+      <pose>64 64 0.0 0 0 1.0799999999999974</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_25</name>
+      <pose>-64 -62 0.0 0 0 1.9099999999999993</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_26</name>
+      <pose>40 88 0.0 0 0 2.7399999999999975</pose>
+    </include>
+    <include>
+      <uri>model://town/tree</uri>
+      <name>tree_27</name>
+      <pose>-45 -75 0.0 0 0 3.5699999999999994</pose>
+    </include>
+    <include>
+      <uri>model://town/streetlight</uri>
+      <name>lamp_0</name>
+      <pose>-46.1 -46.1 0.0 0 0 2.356194490192345</pose>
+    </include>
+    <include>
+      <uri>model://town/streetlight</uri>
+      <name>lamp_1</name>
+      <pose>-57.9 -57.9 0.0 0 0 -0.7853981633974483</pose>
+    </include>
+    <include>
+      <uri>model://town/streetlight</uri>
+      <name>lamp_2</name>
+      <pose>-46.1 5.9 0.0 0 0 2.356194490192345</pose>
+    </include>
+    <include>
+      <uri>model://town/streetlight</uri>
+      <name>lamp_3</name>
+      <pose>-57.9 -5.9 0.0 0 0 -0.7853981633974483</pose>
+    </include>
+    <include>
+      <uri>model://town/streetlight</uri>
+      <name>lamp_4</name>
+      <pose>-46.1 57.9 0.0 0 0 2.356194490192345</pose>
+    </include>
+    <include>
+      <uri>model://town/streetlight</uri>
+      <name>lamp_5</name>
+      <pose>-57.9 46.1 0.0 0 0 -0.7853981633974483</pose>
+    </include>
+    <include>
+      <uri>model://town/streetlight</uri>
+      <name>lamp_6</name>
+      <pose>5.9 -46.1 0.0 0 0 2.356194490192345</pose>
+    </include>
+    <include>
+      <uri>model://town/streetlight</uri>
+      <name>lamp_7</name>
+      <pose>-5.9 -57.9 0.0 0 0 -0.7853981633974483</pose>
+    </include>
+    <include>
+      <uri>model://town/streetlight</uri>
+      <name>lamp_8</name>
+      <pose>5.9 5.9 0.0 0 0 2.356194490192345</pose>
+    </include>
+    <include>
+      <uri>model://town/streetlight</uri>
+      <name>lamp_9</name>
+      <pose>-5.9 -5.9 0.0 0 0 -0.7853981633974483</pose>
+    </include>
+    <include>
+      <uri>model://town/streetlight</uri>
+      <name>lamp_10</name>
+      <pose>5.9 57.9 0.0 0 0 2.356194490192345</pose>
+    </include>
+    <include>
+      <uri>model://town/streetlight</uri>
+      <name>lamp_11</name>
+      <pose>-5.9 46.1 0.0 0 0 -0.7853981633974483</pose>
+    </include>
+    <include>
+      <uri>model://town/streetlight</uri>
+      <name>lamp_12</name>
+      <pose>57.9 -46.1 0.0 0 0 2.356194490192345</pose>
+    </include>
+    <include>
+      <uri>model://town/streetlight</uri>
+      <name>lamp_13</name>
+      <pose>46.1 -57.9 0.0 0 0 -0.7853981633974483</pose>
+    </include>
+    <include>
+      <uri>model://town/streetlight</uri>
+      <name>lamp_14</name>
+      <pose>57.9 5.9 0.0 0 0 2.356194490192345</pose>
+    </include>
+    <include>
+      <uri>model://town/streetlight</uri>
+      <name>lamp_15</name>
+      <pose>46.1 -5.9 0.0 0 0 -0.7853981633974483</pose>
+    </include>
+    <include>
+      <uri>model://town/streetlight</uri>
+      <name>lamp_16</name>
+      <pose>57.9 57.9 0.0 0 0 2.356194490192345</pose>
+    </include>
+    <include>
+      <uri>model://town/streetlight</uri>
+      <name>lamp_17</name>
+      <pose>46.1 46.1 0.0 0 0 -0.7853981633974483</pose>
+    </include>
+    <include>
+      <uri>model://town/streetlight</uri>
+      <name>lamp_18</name>
+      <pose>5.9 -30 0.0 0 0 3.141592653589793</pose>
+    </include>
+    <include>
+      <uri>model://town/streetlight</uri>
+      <name>lamp_19</name>
+      <pose>-5.9 30 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/streetlight</uri>
+      <name>lamp_20</name>
+      <pose>5.9 30 0.0 0 0 3.141592653589793</pose>
+    </include>
+    <include>
+      <uri>model://town/streetlight</uri>
+      <name>lamp_21</name>
+      <pose>-5.9 -30 0.0 0 0 0.0</pose>
+    </include>
+    <include>
+      <uri>model://town/car_red</uri>
+      <name>car_0</name>
+      <pose>49.4 26 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/car_blue</uri>
+      <name>car_1</name>
+      <pose>54.6 -18 0.0 0 0 -1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/car_white</uri>
+      <name>car_2</name>
+      <pose>-2.6 70 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/car_red</uri>
+      <name>car_3</name>
+      <pose>2.6 -66 0.0 0 0 -1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/car_blue</uri>
+      <name>car_4</name>
+      <pose>-49.4 -33 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/car_white</uri>
+      <name>car_5</name>
+      <pose>-54.6 40 0.0 0 0 -1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/car_red</uri>
+      <name>car_6</name>
+      <pose>30 49.4 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/car_white</uri>
+      <name>car_7</name>
+      <pose>-20 54.6 0.0 0 0 3.141592653589793</pose>
+    </include>
+    <include>
+      <uri>model://town/car_blue</uri>
+      <name>car_8</name>
+      <pose>20 -49.4 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/car_white</uri>
+      <name>car_9</name>
+      <pose>34.6 9.5 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/car_red</uri>
+      <name>car_10</name>
+      <pose>34.6 17.3 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/car_blue</uri>
+      <name>car_11</name>
+      <pose>41.4 12.1 0.0 0 0 3.141592653589793</pose>
+    </include>
+    <include>
+      <uri>model://town/car_blue</uri>
+      <name>car_12</name>
+      <pose>34.6 -27.4 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/car_white</uri>
+      <name>car_13</name>
+      <pose>41.4 -33.0 0.0 0 0 3.141592653589793</pose>
+    </include>
+    <include>
+      <uri>model://town/street_sign</uri>
+      <name>sign_0</name>
+      <pose>5.9 -6.6 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/street_sign_yellow</uri>
+      <name>sign_1</name>
+      <pose>-57.9 6.6 0.0 0 0 3.141592653589793</pose>
+    </include>
+    <include>
+      <uri>model://town/street_sign</uri>
+      <name>sign_2</name>
+      <pose>46.1 57.9 0.0 0 0 1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/street_sign_yellow</uri>
+      <name>sign_3</name>
+      <pose>-46.1 -57.9 0.0 0 0 -1.5707963267948966</pose>
+    </include>
+    <include>
+      <uri>model://town/street_sign</uri>
+      <name>sign_4</name>
+      <pose>57.9 -46.1 0.0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://town/street_sign_yellow</uri>
+      <name>sign_5</name>
+      <pose>-5.9 58.6 0.0 0 0 3.141592653589793</pose>
+    </include>
+
+    <!-- drone, on the central road intersection -->
+    <include>
+      <uri>model://drone</uri>
+    </include>
+  </world>
+</sdf>

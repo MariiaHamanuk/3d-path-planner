@@ -7,7 +7,17 @@ startup_window: gz
 windows:
   - gz:
       panes:
-        - gz sim -v 4 -s -r simulation/worlds/default.world
+        - gz sim -v 4 -s -r "$WORLD"
+
+  - ardupilot:
+      panes:
+        # MAVProxy console: `mode guided`, `arm throttle`, `takeoff 5`, ...
+        # QGC (on the host) gets MAVLink on UDP 14550; override host with QGC_HOST
+        - >
+          mkdir -p /tmp/sitl && cd /tmp/sitl &&
+          sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON -w --no-rebuild
+          --add-param-file=/workspace/src/scripts/bebop.parm
+          --out=udp:${QGC_HOST:-host.docker.internal}:14550
 
   - bridge:
       panes:
@@ -15,6 +25,8 @@ windows:
           ros2 run ros_gz_bridge parameter_bridge
           /camera@sensor_msgs/msg/Image@gz.msgs.Image
           /camera2@sensor_msgs/msg/Image@gz.msgs.Image
+          /depth_camera@sensor_msgs/msg/Image@gz.msgs.Image
+          /depth_camera/points@sensor_msgs/msg/PointCloud2@gz.msgs.PointCloudPacked
           /model/parrot_bebop_2/pose@tf2_msgs/msg/TFMessage@gz.msgs.Pose_V
           --ros-args -r /model/parrot_bebop_2/pose:=/tf
   

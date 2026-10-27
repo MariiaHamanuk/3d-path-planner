@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="street_sign">
+    <static>true</static>
+    <link name="link">
+      <visual name="pole">
+        <pose>0 0 1.3 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><cylinder><radius>0.04</radius><length>2.6</length></cylinder></geometry>
+          <material>
+            <ambient>0.25 0.26 0.28 1</ambient>
+            <diffuse>0.25 0.26 0.28 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr><metal><roughness>0.5</roughness><metalness>0.7</metalness></metal></pbr>
+          </material>
+      </visual>
+      <visual name="board">
+        <pose>0 0 2.15 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>0.06 0.95 0.7</size></box></geometry>
+          <material>
+            <ambient>1 1 1 1</ambient>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr><metal>
+              <albedo_map>textures/street_sign_sign_color.jpg</albedo_map>
+              <roughness>0.4</roughness><metalness>0.2</metalness>
+            </metal></pbr>
+          </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

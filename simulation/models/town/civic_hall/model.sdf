@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="civic_hall">
+    <static>true</static>
+    <link name="link">
+      <visual name="walls">
+        <pose>0 0 4.0 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>16 12 8</size></box></geometry>
+          <material>
+            <ambient>1 1 1 1</ambient>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr><metal>
+              <albedo_map>textures/civic_hall_facade_color.jpg</albedo_map>
+              <normal_map>textures/civic_hall_facade_normal.jpg</normal_map>
+              <roughness>0.7</roughness><metalness>0.0</metalness>
+            </metal></pbr>
+          </material>
+      </visual>
+      <visual name="roof">
+        <pose>0 0 8.175 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>16.5 12.5 0.35</size></box></geometry>
+          <material>
+            <ambient>1 1 1 1</ambient>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr><metal>
+              <albedo_map>textures/civic_hall_roof_color.jpg</albedo_map>
+              <roughness>0.95</roughness><metalness>0.0</metalness>
+            </metal></pbr>
+          </material>
+      </visual>
+      <collision name="collision">
+        <pose>0 0 4.175 0 0 0</pose>
+        <geometry><box><size>16 12 8.35</size></box></geometry>
+      </collision>
+    </link>
+  </model>
+</sdf>
