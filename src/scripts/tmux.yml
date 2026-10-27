@@ -7,7 +7,7 @@ startup_window: gz
 windows:
   - gz:
       panes:
-        - gz sim -v 4 -s -r simulation/worlds/default.world
+        - gz sim -v 4 -s -r "$WORLD"
 
   - ardupilot:
       panes:

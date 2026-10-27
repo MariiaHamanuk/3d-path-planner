@@ -32,8 +32,11 @@ Very cool mentor
 
 Inside the running container
 ```bash
-./src/scripts/start.sh <config-path>
+./src/scripts/start.sh [-w <world>] [config-path]
 ```
+
+Worlds live in `simulation/worlds/<name>.world`: `default` (flat ground, default) and `city` (200x200 m town).
+Pick one with `-w city`, `WORLD=city ./src/scripts/start.sh`, or `WORLD=city` in the config file.
 
 This launches a tmux session defined in `src/scripts/tmux.yml` with:
 - `gz`- Gazebo simulation

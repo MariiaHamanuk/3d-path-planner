@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="warehouse">
+    <static>true</static>
+    <link name="link">
+      <visual name="walls">
+        <pose>0 0 4.5 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>24 18 9</size></box></geometry>
+          <material>
+            <ambient>1 1 1 1</ambient>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr><metal>
+              <albedo_map>textures/warehouse_facade_color.jpg</albedo_map>
+              <normal_map>textures/warehouse_facade_normal.jpg</normal_map>
+              <roughness>0.7</roughness><metalness>0.0</metalness>
+            </metal></pbr>
+          </material>
+      </visual>
+      <visual name="roof">
+        <pose>0 0 9.15 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>24.6 18.6 0.3</size></box></geometry>
+          <material>
+            <ambient>1 1 1 1</ambient>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+            <pbr><metal>
+              <albedo_map>textures/warehouse_roof_color.jpg</albedo_map>
+              <roughness>0.6</roughness><metalness>0.4</metalness>
+            </metal></pbr>
+          </material>
+      </visual>
+      <collision name="collision">
+        <pose>0 0 4.65 0 0 0</pose>
+        <geometry><box><size>24 18 9.3</size></box></geometry>
+      </collision>
+    </link>
+  </model>
+</sdf>
