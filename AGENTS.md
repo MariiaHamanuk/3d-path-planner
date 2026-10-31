@@ -18,4 +18,6 @@ Enumerators are `CamelCase` (`CameraId::Color`). Constants and macros are not co
 ## Project rules
 
 - ROS types stay inside `.cpp` files of the I/O layer. Public headers expose only project
-  types (Eigen, OpenCV, std) - see `3dpath/include/path3d/types.hpp`.
+  types (Eigen, OpenCV, std) - see `3dpath/include/types.hpp`.
+- The code is C++20. Constrain templates with concepts instead of relying on
+  implicit requirements (see `Stamped` in `communication.hpp`: every message type must have a `stamp`).
