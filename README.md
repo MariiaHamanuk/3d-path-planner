@@ -73,7 +73,9 @@ Extra ArduCopter params live in `scripts/bebop.parm` (starting values, not tuned
 
 ### Reading the simulation from C++ (`3dpath/`)
 
-`path3d::SimReader` (`3dpath/include/sim_reader.hpp`) subscribes to the sim and returns only
+`path3d::Reader` (`3dpath/include/reader.hpp`) is the interface the rest of the system uses to get
+sensor data; `path3d::SimReader` (`3dpath/include/sim_reader.hpp`) is its Gazebo implementation
+(a real drone or a replay would be another one). It subscribes to the sim and returns only
 project types from `types.hpp` (Eigen poses, `cv::Mat` images, `cv::Matx` calibration) - no ROS types
 outside `sim_reader.cpp`. It gives the drone pose in the world, color + depth images, camera
 calibration and the base-link -> camera transforms.
