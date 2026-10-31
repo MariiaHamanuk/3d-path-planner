@@ -1,15 +1,13 @@
 // Prints what SimReader sees once per second:  ros2 run path3d sim_reader_demo [world]
-#include "path3d/sim_reader.hpp"
+#include "reader.hpp"
+#include "sim_reader.hpp"
 
 #include <chrono>
 #include <iostream>
 #include <thread>
 
-int main(int argc, char** argv) {
-  path3d::SimReaderConfig cfg;
-  if (argc > 1) cfg.world_frame = argv[1];
-  path3d::SimReader reader(cfg);
-
+// Works with any Reader implementation.
+void print_forever(const path3d::Reader& reader) {
   if (!reader.wait_for_data(std::chrono::seconds(15))) std::cerr << "timeout: partial data only\n";
 
   for (;;) {
@@ -31,4 +29,11 @@ int main(int argc, char** argv) {
     std::cout << "---\n";
     std::this_thread::sleep_for(std::chrono::seconds(1));
   }
+}
+
+int main(int argc, char** argv) {
+  path3d::SimReaderConfig cfg;
+  if (argc > 1) cfg.world_frame = argv[1];
+  path3d::SimReader reader(cfg);
+  print_forever(reader);
 }

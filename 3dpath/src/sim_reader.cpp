@@ -1,4 +1,4 @@
-#include "path3d/sim_reader.hpp"
+#include "sim_reader.hpp"
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <opencv2/imgproc.hpp>
