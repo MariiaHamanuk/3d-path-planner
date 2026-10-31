@@ -16,7 +16,7 @@ windows:
         - >
           mkdir -p /tmp/sitl && cd /tmp/sitl &&
           sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON -w --no-rebuild
-          --add-param-file=/workspace/src/scripts/bebop.parm
+          --add-param-file=/workspace/scripts/bebop.parm
           --out=udp:${QGC_HOST:-host.docker.internal}:14550
 
   - bridge:

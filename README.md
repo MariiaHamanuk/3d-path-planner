@@ -32,13 +32,13 @@ Very cool mentor
 
 Inside the running container
 ```bash
-./src/scripts/start.sh [-w <world>] [config-path]
+./scripts/start.sh [-w <world>] [config-path]
 ```
 
 Worlds live in `simulation/worlds/<name>.world`: `default` (flat ground, default) and `city` (200x200 m town).
-Pick one with `-w city`, `WORLD=city ./src/scripts/start.sh`, or `WORLD=city` in the config file.
+Pick one with `-w city`, `WORLD=city ./scripts/start.sh`, or `WORLD=city` in the config file.
 
-This launches a tmux session defined in `src/scripts/tmux.yml` with:
+This launches a tmux session defined in `scripts/tmux.yml` with:
 - `gz`- Gazebo simulation
 - `ardupilot` - ArduCopter SITL + MAVProxy console
 - `bridge`- ROS-Gz bridge
@@ -63,11 +63,11 @@ mode land
 **QGroundControl** - on the host, with QGC closed/open, it autoconnects on UDP `14550`
 (MAVProxy sends there via `host.docker.internal`). If it doesn't, add a Comm Link:
 type UDP, listening port `14550`. On Linux, allow UDP 14550 through the host firewall.
-Use `QGC_HOST=<ip> ./src/scripts/start.sh` if QGC runs on another machine.
+Use `QGC_HOST=<ip> ./scripts/start.sh` if QGC runs on another machine.
 
 Depth: `/depth_camera` (32FC1, meters, 320x240, hfov 1.047 rad, range 0.1-200 m) and `/depth_camera/points` (PointCloud2), same viewpoint as `/camera`.
 
-Extra ArduCopter params live in `src/scripts/bebop.parm` (starting values, not tuned).
+Extra ArduCopter params live in `scripts/bebop.parm` (starting values, not tuned).
 
 ---
 

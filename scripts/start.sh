@@ -3,10 +3,10 @@
 set -x
 
 SCRIPT=$(readlink -f $0)
-ROOT=$(realpath "$(dirname "$SCRIPT")/../..")  
+ROOT=$(realpath "$(dirname "$SCRIPT")/..")  
 cd "$ROOT"
 
-SCRIPTDIR="$ROOT/src/scripts"
+SCRIPTDIR="$ROOT/scripts"
 
 # Usage: start.sh [-w|--world <name>] [config-path]    (name: default, city, ...; or WORLD=<name> env)
 WORLD_ARG="$WORLD"
