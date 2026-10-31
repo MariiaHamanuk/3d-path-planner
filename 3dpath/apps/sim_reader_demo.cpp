@@ -12,10 +12,10 @@ void print_forever(const path3d::Reader& reader) {
 
   for (;;) {
     if (auto p = reader.drone_pose())
-      std::cout << "drone in " << p->parent_frame << ": " << p->pose.position.transpose() << "\n";
+      std::cout << "drone in " << path3d::to_string(p->parent_frame) << ": " << p->pose.position.transpose() << "\n";
     if (auto c = reader.color_image())
       std::cout << "color " << c->image.cols << "x" << c->image.rows << " type " << c->image.type()
-                << " frame " << c->frame_id << "\n";
+                << " frame " << path3d::to_string(c->frame_id) << "\n";
     if (auto d = reader.depth_image())
       std::cout << "depth " << d->image.cols << "x" << d->image.rows << " centre "
                 << d->image.at<float>(d->image.rows / 2, d->image.cols / 2) << " m\n";
@@ -24,7 +24,7 @@ void print_forever(const path3d::Reader& reader) {
         std::cout << "K fx " << k->fx() << " fy " << k->fy() << " cx " << k->cx() << " cy " << k->cy()
                   << "\n";
       if (auto t = reader.base_to_camera(id))
-        std::cout << "base->" << t->child_frame << ": " << t->pose.position.transpose() << "\n";
+        std::cout << "base->" << path3d::to_string(t->child_frame) << ": " << t->pose.position.transpose() << "\n";
     }
     std::cout << "---\n";
     std::this_thread::sleep_for(std::chrono::seconds(1));

@@ -12,6 +12,8 @@ namespace path3d {
 //
 // Contract for implementations: getters are thread-safe, never block, and return std::nullopt
 // until the first matching data is available. Only project types appear here (no ROS).
+// Implementations convert their native frame names to `FrameId`; no frame strings cross this
+// interface.
 class Reader {
  public:
   virtual ~Reader() = default;

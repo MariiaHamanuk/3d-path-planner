@@ -20,6 +20,8 @@ class FakeReader : public Reader {
   std::optional<path3d::StampedPose> drone_pose() const override {
     path3d::StampedPose pose;
     pose.stamp = 1.5;
+    pose.parent_frame = path3d::FrameId::World;
+    pose.child_frame = path3d::FrameId::Base;
     pose.pose.position = Eigen::Vector3d(1, 2, 3);
     return pose;
   }

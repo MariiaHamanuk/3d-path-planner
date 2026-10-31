@@ -20,11 +20,12 @@ TimeSec to_sec(const builtin_interfaces::msg::Time& t) {
   return static_cast<double>(t.sec) + static_cast<double>(t.nanosec) * 1e-9;
 }
 
-StampedPose to_stamped_pose(const geometry_msgs::msg::TransformStamped& ts) {
+StampedPose to_stamped_pose(const geometry_msgs::msg::TransformStamped& ts, FrameId parent,
+                            FrameId child) {
   StampedPose out;
   out.stamp = to_sec(ts.header.stamp);
-  out.parent_frame = ts.header.frame_id;
-  out.child_frame = ts.child_frame_id;
+  out.parent_frame = parent;
+  out.child_frame = child;
   const auto& t = ts.transform.translation;
   const auto& q = ts.transform.rotation;
   out.pose.position = Eigen::Vector3d(t.x, t.y, t.z);
@@ -55,10 +56,10 @@ std::optional<cv::Mat> to_mat(const sensor_msgs::msg::Image& m, CameraId camera)
   return bgr;
 }
 
-CameraCalibration to_calibration(const sensor_msgs::msg::CameraInfo& m) {
+CameraCalibration to_calibration(const sensor_msgs::msg::CameraInfo& m, FrameId frame) {
   CameraCalibration c;
   c.stamp = to_sec(m.header.stamp);
-  c.frame_id = m.header.frame_id;
+  c.frame_id = frame;
   c.width = static_cast<int>(m.width);
   c.height = static_cast<int>(m.height);
   for (int i = 0; i < 9; ++i) {
@@ -139,9 +140,11 @@ struct SimReader::Impl {
     }
     ImageFrame f;
     f.stamp = to_sec(m.header.stamp);
-    f.frame_id = m.header.frame_id;
+    f.frame_id = camera_frame(camera);
     f.image = std::move(*mat);
     std::lock_guard<std::mutex> lock(m_mtx);
+    std::string& name = camera == CameraId::Color ? m_color_name : m_depth_name;
+    if (name.empty()) name = m.header.frame_id;
     if (camera == CameraId::Depth && (!m_depth_cal || m_depth_cal->width != f.image.cols ||
                                       m_depth_cal->height != f.image.rows)) {
       m_depth_cal = pinhole_from_fov(f, m_cfg.depth_hfov_rad);
@@ -150,24 +153,37 @@ struct SimReader::Impl {
   }
 
   void on_color_info(const sensor_msgs::msg::CameraInfo& m) {
-    auto c = to_calibration(m);
+    auto c = to_calibration(m, FrameId::ColorCamera);
     std::lock_guard<std::mutex> lock(m_mtx);
+    if (!m.header.frame_id.empty()) m_color_name = m.header.frame_id;
     m_color_cal = std::move(c);
   }
 
-  std::optional<std::string> camera_frame(CameraId camera) const {
-    std::lock_guard<std::mutex> lock(m_mtx);
-    const auto& img = camera == CameraId::Color ? m_color : m_depth;
-    const auto& cal = camera == CameraId::Color ? m_color_cal : m_depth_cal;
-    if (cal && !cal->frame_id.empty()) return cal->frame_id;
-    if (img && !img->frame_id.empty()) return img->frame_id;
+  // Native (TF) name of a frame; null while a camera frame has not been seen yet.
+  std::optional<std::string> frame_name(FrameId frame) const {
+    switch (frame) {
+      case FrameId::World: return m_cfg.world_frame;
+      case FrameId::Base: return m_cfg.base_frame;
+      case FrameId::ColorCamera:
+      case FrameId::DepthCamera: {
+        std::lock_guard<std::mutex> lock(m_mtx);
+        const std::string& name = frame == FrameId::ColorCamera ? m_color_name : m_depth_name;
+        if (name.empty()) return std::nullopt;
+        return name;
+      }
+    }
     return std::nullopt;
   }
 
   // pose of `source` expressed in `target`
-  std::optional<StampedPose> lookup(const std::string& target, const std::string& source) const {
+  std::optional<StampedPose> lookup(FrameId target, FrameId source) const {
+    const auto target_name = frame_name(target);
+    const auto source_name = frame_name(source);
+    if (!target_name || !source_name) return std::nullopt;
     try {
-      return to_stamped_pose(m_tf_buffer->lookupTransform(target, source, tf2::TimePointZero));
+      return to_stamped_pose(m_tf_buffer->lookupTransform(*target_name, *source_name,
+                                                          tf2::TimePointZero),
+                             target, source);
     } catch (const tf2::TransformException&) {
       return std::nullopt;
     }
@@ -184,6 +200,7 @@ struct SimReader::Impl {
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr m_color_info_sub;
 
   mutable std::mutex m_mtx;
+  std::string m_color_name, m_depth_name;  // native TF names of the camera frames
   std::optional<ImageFrame> m_color, m_depth;
   std::optional<CameraCalibration> m_color_cal, m_depth_cal;
 };
@@ -192,7 +209,7 @@ SimReader::SimReader(SimReaderConfig config) : m_impl(std::make_unique<Impl>(std
 SimReader::~SimReader() = default;
 
 std::optional<StampedPose> SimReader::drone_pose() const {
-  return m_impl->lookup(m_impl->m_cfg.world_frame, m_impl->m_cfg.base_frame);
+  return m_impl->lookup(FrameId::World, FrameId::Base);
 }
 
 std::optional<ImageFrame> SimReader::color_image() const {
@@ -211,9 +228,7 @@ std::optional<CameraCalibration> SimReader::calibration(CameraId camera) const {
 }
 
 std::optional<StampedPose> SimReader::base_to_camera(CameraId camera) const {
-  const auto frame = m_impl->camera_frame(camera);
-  if (!frame) return std::nullopt;
-  return m_impl->lookup(m_impl->m_cfg.base_frame, *frame);
+  return m_impl->lookup(FrameId::Base, camera_frame(camera));
 }
 
 bool SimReader::wait_for_data(std::chrono::milliseconds timeout) const {

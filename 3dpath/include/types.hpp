@@ -3,6 +3,7 @@
 #include <Eigen/Geometry>
 #include <opencv2/core.hpp>
 
+#include <cstdint>
 #include <string>
 
 // Project-wide data types. No ROS / Gazebo types leak past this header.
@@ -11,6 +12,29 @@ namespace path3d {
 using TimeSec = double;  // seconds, simulation clock
 
 enum class CameraId { Color, Depth };
+
+// Coordinate frames of the system. Readers convert their native frame names (ROS/TF strings,
+// URDF links, ...) to this enum, so no string is stored or copied per message.
+enum class FrameId : std::uint8_t {
+  World,        // fixed world frame
+  Base,         // drone base link
+  ColorCamera,  // color camera optical frame
+  DepthCamera,  // depth camera optical frame
+};
+
+inline const char* to_string(FrameId frame) {
+  switch (frame) {
+    case FrameId::World: return "world";
+    case FrameId::Base: return "base";
+    case FrameId::ColorCamera: return "color_camera";
+    case FrameId::DepthCamera: return "depth_camera";
+  }
+  return "unknown";
+}
+
+constexpr FrameId camera_frame(CameraId camera) {
+  return camera == CameraId::Color ? FrameId::ColorCamera : FrameId::DepthCamera;
+}
 
 struct Pose {
   Eigen::Vector3d position = Eigen::Vector3d::Zero();
@@ -27,8 +51,8 @@ struct Pose {
 // Pose of `child_frame` expressed in `parent_frame` (i.e. T_parent_child).
 struct StampedPose {
   TimeSec stamp = 0.0;
-  std::string parent_frame;
-  std::string child_frame;
+  FrameId parent_frame = FrameId::World;
+  FrameId child_frame = FrameId::Base;
   Pose pose;
 };
 
@@ -36,7 +60,7 @@ struct StampedPose {
 // Depth: CV_32FC1, meters along the optical axis; non-finite (inf/NaN) = no return.
 struct ImageFrame {
   TimeSec stamp = 0.0;
-  std::string frame_id;
+  FrameId frame_id = FrameId::ColorCamera;
   cv::Mat image;
 };
 
@@ -45,7 +69,7 @@ struct ImageFrame {
 // K is expressed for the image (u right, v down).
 struct CameraCalibration {
   TimeSec stamp = 0.0;
-  std::string frame_id;
+  FrameId frame_id = FrameId::ColorCamera;
   int width = 0;
   int height = 0;
   cv::Matx33d K = cv::Matx33d::eye();  // intrinsics

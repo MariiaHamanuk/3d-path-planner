@@ -29,3 +29,12 @@ TEST(Types, StampedPoseHistoryLookupByStamp) {
   topic.publish(b);
   EXPECT_DOUBLE_EQ(history->closest(1.9)->stamp, 2.0);
 }
+
+// Frames are a one-byte enum, not a string copied with every message.
+static_assert(sizeof(path3d::FrameId) == 1);
+static_assert(path3d::camera_frame(path3d::CameraId::Depth) == path3d::FrameId::DepthCamera);
+
+TEST(Types, FrameIdHasReadableNames) {
+  EXPECT_STREQ(path3d::to_string(path3d::FrameId::Base), "base");
+  EXPECT_EQ(path3d::StampedPose{}.parent_frame, path3d::FrameId::World);
+}
