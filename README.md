@@ -71,6 +71,21 @@ Extra ArduCopter params live in `scripts/bebop.parm` (starting values, not tuned
 
 ---
 
+### Reading the simulation from C++ (`3dpath/`)
+
+`path3d::SimReader` (`3dpath/include/path3d/sim_reader.hpp`) subscribes to the sim and returns only
+project types from `types.hpp` (Eigen poses, `cv::Mat` images, `cv::Matx` calibration) - no ROS types
+outside `sim_reader.cpp`. It gives the drone pose in the world, color + depth images, camera
+calibration and the base-link -> camera transforms.
+
+```bash
+# inside the container, with the sim running
+colcon build --base-paths 3dpath && source install/setup.bash
+ros2 run path3d sim_reader_demo default     # arg = world name (default | city)
+```
+
+---
+
 ### How to use tmux?
 
 As configured in `docker/.tmux.conf` (prefix is `Ctrl + b`):
