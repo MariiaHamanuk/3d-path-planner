@@ -4,7 +4,6 @@
 #include <opencv2/imgproc.hpp>
 #include <tf2/exceptions.h>
 
-#include <cmath>
 
 namespace path3d {
 namespace {
@@ -66,24 +65,6 @@ CameraCalibration to_calibration(const sensor_msgs::msg::CameraInfo& m, FrameId 
   return c;
 }
 
-// Gazebo's depth_camera sensor publishes no CameraInfo, so build the ideal pinhole model
-// (no distortion) from the image size and the sensor's horizontal field of view.
-CameraCalibration pinhole_from_fov(const ImageFrame& f, double hfov_rad) {
-  CameraCalibration c;
-  c.stamp = f.stamp;
-  c.frame_id = f.frame_id;
-  c.width = f.image.cols;
-  c.height = f.image.rows;
-  const double focal = (c.width / 2.0) / std::tan(hfov_rad / 2.0);
-  const double cx = c.width / 2.0;
-  const double cy = c.height / 2.0;
-  c.K = cv::Matx33d(focal, 0, cx, 0, focal, cy, 0, 0, 1);
-  c.P = cv::Matx34d(focal, 0, cx, 0, 0, focal, cy, 0, 0, 0, 1, 0);
-  c.distortion = cv::Mat_<double>(1, 0);
-  c.distortion_model = "plumb_bob";
-  return c;
-}
-
 }  // namespace
 
 SimReader::SimReader(SimReaderConfig config) : m_cfg(std::move(config)) {
@@ -103,8 +84,13 @@ SimReader::SimReader(SimReaderConfig config) : m_cfg(std::move(config)) {
       m_cfg.depth_image_topic, qos,
       [this](sensor_msgs::msg::Image::ConstSharedPtr msg) { on_image(*msg, CameraId::Depth); });
   m_color_info_sub = m_node->create_subscription<sensor_msgs::msg::CameraInfo>(
-      m_cfg.color_info_topic, qos,
-      [this](sensor_msgs::msg::CameraInfo::ConstSharedPtr msg) { on_color_info(*msg); });
+      m_cfg.color_info_topic, qos, [this](sensor_msgs::msg::CameraInfo::ConstSharedPtr msg) {
+        on_info(*msg, CameraId::Color);
+      });
+  m_depth_info_sub = m_node->create_subscription<sensor_msgs::msg::CameraInfo>(
+      m_cfg.depth_info_topic, qos, [this](sensor_msgs::msg::CameraInfo::ConstSharedPtr msg) {
+        on_info(*msg, CameraId::Depth);
+      });
 
   m_executor = std::make_unique<rclcpp::executors::SingleThreadedExecutor>();
   m_executor->add_node(m_node);
@@ -119,6 +105,7 @@ SimReader::~SimReader() {
   m_color_sub.reset();
   m_depth_sub.reset();
   m_color_info_sub.reset();
+  m_depth_info_sub.reset();
   m_node.reset();
   if (m_owns_context) rclcpp::shutdown();
 }
@@ -137,18 +124,15 @@ void SimReader::on_image(const sensor_msgs::msg::Image& msg, CameraId camera) {
   std::lock_guard<std::mutex> lock(m_mtx);
   std::string& name = camera == CameraId::Color ? m_color_name : m_depth_name;
   if (name.empty()) name = msg.header.frame_id;
-  if (camera == CameraId::Depth && (!m_depth_cal || m_depth_cal->width != frame.image.cols ||
-                                    m_depth_cal->height != frame.image.rows)) {
-    m_depth_cal = pinhole_from_fov(frame, m_cfg.depth_hfov_rad);
-  }
   (camera == CameraId::Color ? m_color : m_depth) = std::move(frame);
 }
 
-void SimReader::on_color_info(const sensor_msgs::msg::CameraInfo& msg) {
-  auto calibration = to_calibration(msg, FrameId::ColorCamera);
+void SimReader::on_info(const sensor_msgs::msg::CameraInfo& msg, CameraId camera) {
+  auto calibration = to_calibration(msg, camera_frame(camera));
   std::lock_guard<std::mutex> lock(m_mtx);
-  if (!msg.header.frame_id.empty()) m_color_name = msg.header.frame_id;
-  m_color_cal = std::move(calibration);
+  std::string& name = camera == CameraId::Color ? m_color_name : m_depth_name;
+  if (!msg.header.frame_id.empty()) name = msg.header.frame_id;
+  (camera == CameraId::Color ? m_color_cal : m_depth_cal) = std::move(calibration);
 }
 
 // Native (TF) name of a frame; null while a camera frame has not been seen yet.

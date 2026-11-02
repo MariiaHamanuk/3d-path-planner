@@ -65,7 +65,7 @@ mode land
 type UDP, listening port `14550`. On Linux, allow UDP 14550 through the host firewall.
 Use `QGC_HOST=<ip> ./scripts/start.sh` if QGC runs on another machine.
 
-Depth: `/depth_camera` (32FC1, meters, 320x240, hfov 1.047 rad, range 0.1-200 m) and `/depth_camera/points` (PointCloud2), same viewpoint as `/camera`.
+Depth: `/depth_camera` (32FC1, meters, 320x240, hfov 1.047 rad, range 0.1-200 m), `/depth_camera/camera_info` and `/depth_camera/points` (PointCloud2), same viewpoint as `/camera`. Gazebo's depth sensor always advertises its info as `/camera_info` (it ignores `<camera_info_topic>`), so the bridge remaps it to `/depth_camera/camera_info`.
 
 Extra ArduCopter params live in `scripts/bebop.parm` (starting values, not tuned).
 

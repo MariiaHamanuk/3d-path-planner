@@ -24,9 +24,7 @@ struct SimReaderConfig {
   std::string color_image_topic = "/camera";
   std::string color_info_topic = "/camera/camera_info";
   std::string depth_image_topic = "/depth_camera";
-  // Gazebo's depth camera has no CameraInfo topic; its intrinsics are derived from the
-  // image size and this field of view (keep in sync with <horizontal_fov> in model.sdf).
-  double depth_hfov_rad = 1.047;
+  std::string depth_info_topic = "/depth_camera/camera_info";
 };
 
 // Reader backed by the Gazebo simulation: subscribes (through the ros_gz bridge) in a background
@@ -48,7 +46,7 @@ class SimReader : public Reader {
 
  private:
   void on_image(const sensor_msgs::msg::Image& msg, CameraId camera);
-  void on_color_info(const sensor_msgs::msg::CameraInfo& msg);
+  void on_info(const sensor_msgs::msg::CameraInfo& msg, CameraId camera);
   std::optional<std::string> frame_name(FrameId frame) const;
   std::optional<StampedPose> lookup(FrameId target, FrameId source) const;  // `source` in `target`
 
@@ -60,7 +58,7 @@ class SimReader : public Reader {
   std::unique_ptr<rclcpp::executors::SingleThreadedExecutor> m_executor;  // created after rclcpp::init
   std::thread m_spin_thread;
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr m_color_sub, m_depth_sub;
-  rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr m_color_info_sub;
+  rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr m_color_info_sub, m_depth_info_sub;
 
   mutable std::mutex m_mtx;  // guards everything below
   std::string m_color_name, m_depth_name;  // native TF names of the camera frames
