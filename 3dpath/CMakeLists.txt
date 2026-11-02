@@ -15,15 +15,16 @@ find_package(tf2_ros REQUIRED)
 find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(OpenCV REQUIRED COMPONENTS core imgproc)
 
-# Public headers expose only Eigen + OpenCV + std types; ROS stays private to the library.
+# sim_reader.hpp is the ROS-facing I/O layer and exposes ROS types; everything else in the public
+# headers uses only Eigen + OpenCV + std types (consumers use SimReader through Reader).
 add_library(path3d src/threading.cpp src/sim_reader.cpp)
 target_include_directories(path3d
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>)
 target_link_libraries(path3d
-  PUBLIC Eigen3::Eigen ${OpenCV_LIBS}
-  PRIVATE rclcpp::rclcpp ${sensor_msgs_TARGETS} tf2::tf2 tf2_ros::tf2_ros)
+  PUBLIC Eigen3::Eigen ${OpenCV_LIBS} rclcpp::rclcpp ${sensor_msgs_TARGETS} tf2::tf2
+         tf2_ros::tf2_ros)
 target_include_directories(path3d PUBLIC ${OpenCV_INCLUDE_DIRS})
 
 find_package(Threads REQUIRED)
@@ -50,5 +51,5 @@ if(BUILD_TESTING)
 endif()
 
 ament_export_targets(export_path3d HAS_LIBRARY_TARGET)
-ament_export_dependencies(Eigen3 OpenCV)
+ament_export_dependencies(Eigen3 OpenCV rclcpp sensor_msgs tf2 tf2_ros)
 ament_package()
