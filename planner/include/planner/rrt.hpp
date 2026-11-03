@@ -14,8 +14,8 @@ template <std::size_t Dim>
 using Vec = Point<double, Dim>;
 
 template <typename M, std::size_t Dim>
-concept SamplingMap = requires(const M& map, const Vec<Dim>& p) {
-    { map.isFree(p) } -> std::convertible_to<bool>;
+concept SamplingMap = requires(const M& map, const Vec<Dim>& p) { // те за що говорив Макс - домовляємося з картою
+    { map.isFree(p) } -> std::convertible_to<bool>; // нам все одно яка карта але маємо знати чи точка/відрізок вільні і межі карти
     { map.segmentFree(p, p) } -> std::convertible_to<bool>;
     { map.lowerBound() } -> std::convertible_to<Vec<Dim>>;
     { map.upperBound() } -> std::convertible_to<Vec<Dim>>;
@@ -23,15 +23,16 @@ concept SamplingMap = requires(const M& map, const Vec<Dim>& p) {
 
 struct RrtParams {
     std::size_t maxIterations = 5000;
-    double stepSize = 1.0;
-    double goalBias = 0.05;
-    double goalTolerance = 1.0;
+    double stepSize = 1.0; // макс. довжина 1 гілки
+    double goalBias = 0.05; // відсоток скільки із спроб ми будемо прямувати прямо до цілі, щоб дерево не росло однаково скрізь а все ж таки 
+    // //"більшала ймовірність" потягнутися ближче до цілі і аби воно не ранилося до ранку
+    double goalTolerance = 1.0; // після якої відстані ми йдемо вже прямо до цілі щоб не віляти навколо неї а був норм конвьордженс в ціль
     std::uint64_t seed = 0;
 };
 
 template <std::size_t Dim>
 struct RrtResult {
-    std::vector<Vec<Dim>> path;
+    std::vector<Vec<Dim>> path; // НЕЗГЛАДЖЕНІ точки 
     double cost = std::numeric_limits<double>::infinity();
     std::size_t treeSize = 0;
 
@@ -54,8 +55,8 @@ template <std::size_t Dim, typename Map>
 RrtResult<Dim> rrt(const Map& map, const Vec<Dim>& start, const Vec<Dim>& goal, const RrtParams& params = {}) {
     struct TreeNode {
         Vec<Dim> point;
-        std::size_t parent;
-        double cost;
+        std::size_t parent;  //дуже важливе уточення що це НОМЕР баті у векторі а не його координати поінтер чи ще щось
+        double cost; // довжина
     };
 
     RrtResult<Dim> result;
