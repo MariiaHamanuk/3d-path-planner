@@ -84,4 +84,18 @@ struct CameraCalibration {
   double cy() const { return K(1, 2); }
 };
 
+// Everything a mapper needs for one depth observation: all data a Reader provides, bundled so a
+// consumer never has to query the Reader piecemeal. `stamp` is the depth image's stamp. Poses are
+// the newest the reader had at capture time (not interpolated to `stamp`).
+struct SensorFrame {
+  TimeSec stamp = 0.0;
+  StampedPose drone_pose;  // base link in the world frame
+  ImageFrame color;
+  ImageFrame depth;
+  CameraCalibration color_calibration;
+  CameraCalibration depth_calibration;
+  StampedPose base_to_color;  // T_base_camera
+  StampedPose base_to_depth;
+};
+
 }  // namespace path3d

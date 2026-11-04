@@ -38,4 +38,27 @@ class Reader {
   Reader() = default;
 };
 
+// Snapshot of everything the reader currently provides; null if any part is still missing.
+inline std::optional<SensorFrame> read_sensor_frame(const Reader& reader) {
+  auto drone_pose = reader.drone_pose();
+  auto color = reader.color_image();
+  auto depth = reader.depth_image();
+  auto color_calibration = reader.calibration(CameraId::Color);
+  auto depth_calibration = reader.calibration(CameraId::Depth);
+  auto base_to_color = reader.base_to_camera(CameraId::Color);
+  auto base_to_depth = reader.base_to_camera(CameraId::Depth);
+  if (!drone_pose || !color || !depth || !color_calibration || !depth_calibration ||
+      !base_to_color || !base_to_depth) {
+    return std::nullopt;
+  }
+  return SensorFrame{.stamp = depth->stamp,
+                     .drone_pose = std::move(*drone_pose),
+                     .color = std::move(*color),
+                     .depth = std::move(*depth),
+                     .color_calibration = std::move(*color_calibration),
+                     .depth_calibration = std::move(*depth_calibration),
+                     .base_to_color = std::move(*base_to_color),
+                     .base_to_depth = std::move(*base_to_depth)};
+}
+
 }  // namespace path3d

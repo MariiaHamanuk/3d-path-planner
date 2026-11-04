@@ -1,4 +1,4 @@
-#include "reader.hpp"
+#include "fake_reader.hpp"
 #include "sim_reader.hpp"
 
 #include <gtest/gtest.h>
@@ -7,35 +7,13 @@
 #include <type_traits>
 
 using namespace std::chrono_literals;
-using path3d::CameraId;
 using path3d::Reader;
+using path3d::test::FakeReader;
 
 static_assert(std::is_abstract_v<Reader>);
 static_assert(std::is_base_of_v<Reader, path3d::SimReader>);
 
 namespace {
-// A second implementation: canned data, no ROS, no simulation.
-class FakeReader : public Reader {
- public:
-  std::optional<path3d::StampedPose> drone_pose() const override {
-    path3d::StampedPose pose;
-    pose.stamp = 1.5;
-    pose.parent_frame = path3d::FrameId::World;
-    pose.child_frame = path3d::FrameId::Base;
-    pose.pose.position = Eigen::Vector3d(1, 2, 3);
-    return pose;
-  }
-  std::optional<path3d::ImageFrame> color_image() const override { return std::nullopt; }
-  std::optional<path3d::ImageFrame> depth_image() const override { return std::nullopt; }
-  std::optional<path3d::CameraCalibration> calibration(CameraId) const override {
-    return std::nullopt;
-  }
-  std::optional<path3d::StampedPose> base_to_camera(CameraId) const override {
-    return std::nullopt;
-  }
-  bool wait_for_data(std::chrono::milliseconds) const override { return true; }
-};
-
 // Consumer code that only knows the interface.
 double drone_height(const Reader& reader) {
   const auto pose = reader.drone_pose();
@@ -47,5 +25,21 @@ TEST(Reader, ConsumersWorkThroughTheInterface) {
   std::unique_ptr<Reader> reader = std::make_unique<FakeReader>();
   EXPECT_TRUE(reader->wait_for_data(1ms));
   EXPECT_DOUBLE_EQ(drone_height(*reader), 3.0);
-  EXPECT_FALSE(reader->color_image().has_value());
+  EXPECT_TRUE(reader->color_image().has_value());
+}
+
+TEST(Reader, SensorFrameBundlesEverythingTheReaderProvides) {
+  const auto frame = path3d::read_sensor_frame(FakeReader());
+  ASSERT_TRUE(frame.has_value());
+  EXPECT_DOUBLE_EQ(frame->stamp, 1.45);  // depth stamp
+  EXPECT_DOUBLE_EQ(frame->drone_pose.pose.position.z(), 3.0);
+  EXPECT_EQ(frame->color.image.cols, 6);
+  EXPECT_EQ(frame->depth.image.at<float>(0, 0), 2.5f);
+  EXPECT_EQ(frame->color_calibration.frame_id, path3d::FrameId::ColorCamera);
+  EXPECT_EQ(frame->depth_calibration.frame_id, path3d::FrameId::DepthCamera);
+  EXPECT_EQ(frame->base_to_depth.child_frame, path3d::FrameId::DepthCamera);
+}
+
+TEST(Reader, SensorFrameIsNullWhileDataIsMissing) {
+  EXPECT_FALSE(path3d::read_sensor_frame(FakeReader(false)).has_value());
 }
