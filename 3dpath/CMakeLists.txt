@@ -32,11 +32,13 @@ target_link_libraries(path3d PUBLIC Threads::Threads)
 
 add_executable(sim_reader_demo apps/sim_reader_demo.cpp)
 target_link_libraries(sim_reader_demo path3d)
+add_executable(path3d_main apps/main.cpp)
+target_link_libraries(path3d_main path3d)
 
 install(DIRECTORY include/ DESTINATION include)
 install(TARGETS path3d EXPORT export_path3d
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
-install(TARGETS sim_reader_demo DESTINATION lib/${PROJECT_NAME})
+install(TARGETS sim_reader_demo path3d_main DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
@@ -48,6 +50,8 @@ if(BUILD_TESTING)
   target_link_libraries(reader_test path3d)
   ament_add_gtest(mapper_test test/mapper_test.cpp)
   target_link_libraries(mapper_test path3d)
+  ament_add_gtest(pipeline_test test/pipeline_test.cpp)
+  target_link_libraries(pipeline_test path3d)
   ament_add_gtest(threading_test test/threading_test.cpp)
   target_link_libraries(threading_test path3d)
 endif()
