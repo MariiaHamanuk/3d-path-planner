@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ros-jazzy-rosbag2-storage-mcap \
         ros-dev-tools \
         tmux tmuxinator \
+        doxygen graphviz \
         mesa-utils libegl1 libgl1 libgl1-mesa-dri \
     && rm -rf /var/lib/apt/lists/*
 
