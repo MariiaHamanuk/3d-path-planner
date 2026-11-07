@@ -28,6 +28,9 @@ Very cool mentor
 ./docker/run.sh
 ```
 
+`run.sh` limits the container to two thirds of the cores and 8 GB of RAM (no swap). Change it with
+`DOCKER_CPUS=6 DOCKER_MEMORY=10g ./docker/run.sh`; it applies when the container starts.
+
 **3. Start Simulation & Services**
 
 Inside the running container
@@ -169,3 +172,20 @@ As configured in `docker/.tmux.conf` (prefix is `Ctrl + b`):
 - `Ctrl + b` then `q`
 
 *the sky in the simulation is pink*
+
+---
+
+### Seeing the map in Foxglove
+
+`path3d_main` builds a log-odds occupancy grid (`LogOddsMapper`) from the depth camera and
+`LogOddsMapVisualizer` (`3dpath/include/visualization/`) publishes it, in the world frame
+(`default` or `city`), at 2 Hz and only when the map changed:
+
+- `/map/occupied_voxels` - `visualization_msgs/Marker`, occupied voxels as cubes colored by height
+- `/map/occupied_cloud` - `sensor_msgs/PointCloud2`, the same voxels as points (`intensity` = log-odds)
+- `/map/free_cloud` - `PointCloud2` of the free voxels, only with `map_visualizer.publish_free`
+
+Run it in the `planner` tmux window once the simulation is up: `./scripts/run_mapping.sh [-n] [world]`
+(builds `path3d` first, `-n` skips the build; the world defaults to the one `start.sh` was started with).
+Add a 3D panel, set the display frame to the world name and turn the topics on. The topics are
+latched, so a viewer that connects late still gets the last map.

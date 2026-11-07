@@ -25,8 +25,17 @@ else
   echo "No usable NVIDIA GPU detected: using CPU rendering"
 fi
 
+# Resource limits, so the simulation + mapping cannot starve the host.
+# Override: DOCKER_CPUS=6 DOCKER_MEMORY=10g ./docker/run.sh   (applies when the container starts)
+# Default: two thirds of the cores and 8 GB of RAM. Memory-swap equals memory: no swapping, so a
+# runaway process is killed inside the container instead of freezing the host.
+DOCKER_CPUS="${DOCKER_CPUS:-$(( ($(nproc) * 2 + 2) / 3 ))}"
+DOCKER_MEMORY="${DOCKER_MEMORY:-8g}"
+echo "Limits: $DOCKER_CPUS CPUs, $DOCKER_MEMORY RAM"
 
 exec docker run -it --rm --init \
+  --cpus="$DOCKER_CPUS" \
+  --memory="$DOCKER_MEMORY" --memory-swap="$DOCKER_MEMORY" \
   "${GPU_ARGS[@]}" \
   --name 3d-path-planner \
   --add-host=host.docker.internal:host-gateway \
