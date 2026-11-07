@@ -1,0 +1,58 @@
+# API reference for 3dpath/. Generate with ./scripts/gen_docs.sh -> docs/api/index.html
+PROJECT_NAME           = "3D Path Planner"
+PROJECT_BRIEF          = "path3d: mapping, planning and control of a drone in simulation"
+OUTPUT_DIRECTORY       = docs/api
+INPUT                  = 3dpath/include docs/architecture.md docs/tutorial_line_planner.md
+RECURSIVE              = YES
+FILE_PATTERNS          = *.hpp *.md
+USE_MDFILE_AS_MAINPAGE = docs/architecture.md
+FULL_PATH_NAMES        = YES
+STRIP_FROM_PATH        = 3dpath/include
+STRIP_FROM_INC_PATH    = 3dpath/include
+
+# document every type, also those without a comment
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = YES
+JAVADOC_AUTOBRIEF      = YES
+MARKDOWN_SUPPORT       = YES
+BUILTIN_STL_SUPPORT    = YES
+CPP_CLI_SUPPORT        = NO
+SORT_MEMBER_DOCS       = NO
+ENABLE_PREPROCESSING   = YES
+PREDEFINED             = __cplusplus=202002L
+CLANG_ASSISTED_PARSING = NO
+
+# diagrams (needs graphviz)
+HAVE_DOT               = YES
+CLASS_GRAPH            = YES
+COLLABORATION_GRAPH    = NO
+INCLUDE_GRAPH          = NO
+INCLUDED_BY_GRAPH      = NO
+GRAPHICAL_HIERARCHY    = YES
+DOT_IMAGE_FORMAT       = svg
+INTERACTIVE_SVG        = YES
+UML_LOOK               = YES
+TEMPLATE_RELATIONS     = YES
+
+GENERATE_HTML          = YES
+HTML_OUTPUT            = .
+GENERATE_TREEVIEW      = YES
+FULL_SIDEBAR           = NO
+
+# doxygen-awesome-css theme (vendored in docs/doxygen-awesome)
+HTML_COLORSTYLE        = LIGHT
+HTML_HEADER            = docs/doxygen-awesome/header.html
+HTML_EXTRA_STYLESHEET  = docs/doxygen-awesome/doxygen-awesome.css
+HTML_EXTRA_FILES       = docs/doxygen-awesome/doxygen-awesome-darkmode-toggle.js \
+                         docs/doxygen-awesome/doxygen-awesome-fragment-copy-button.js \
+                         docs/doxygen-awesome/doxygen-awesome-paragraph-link.js \
+                         docs/doxygen-awesome/doxygen-awesome-interactive-toc.js \
+                         docs/doxygen-awesome/doxygen-awesome-tabs.js
+DISABLE_INDEX          = NO
+GENERATE_LATEX         = NO
+QUIET                  = YES
+WARN_IF_UNDOCUMENTED   = NO
+WARN_NO_PARAMDOC       = NO
+
+TOC_INCLUDE_HEADINGS    = 4

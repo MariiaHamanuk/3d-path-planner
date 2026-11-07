@@ -3,7 +3,7 @@
   vo_town: photorealistic small-town world for UAV visual-odometry testing.
   200 x 200 m, static geometry; the drone is included at the bottom.
   Generated assets live in models/town (referenced as model://town/...); textures are CC0 from ambientCG.com.
-  Run via src/scripts/start.sh -w city (see models/town/README.md).
+  Run via scripts/start.sh -w city (see models/town/README.md).
 -->
 <sdf version="1.9">
   <world name="city">
