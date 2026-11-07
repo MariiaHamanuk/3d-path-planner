@@ -36,6 +36,12 @@ RUN . /opt/ros/jazzy/setup.sh && \
     git checkout -q FETCH_HEAD && \
     cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo && cmake --build build -j"$(nproc)"
 
+# MAVSDK: the C++ MAVLink library behind MavsdkVehicle (3dpath/)
+RUN wget -q -O /tmp/mavsdk.deb \
+        https://github.com/mavlink/MAVSDK/releases/download/v4.1.0/libmavsdk-dev_4.1.0_ubuntu24.04_amd64.deb && \
+    apt-get update && apt-get install -y --no-install-recommends /tmp/mavsdk.deb && \
+    rm -rf /tmp/mavsdk.deb /var/lib/apt/lists/*
+
 # Environment: UTF-8 text, and GPU graphics/EGL libraries (only used with --gpus all)
 ENV LANG=C.UTF-8 \
     NVIDIA_DRIVER_CAPABILITIES=all
