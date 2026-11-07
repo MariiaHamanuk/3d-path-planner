@@ -315,12 +315,14 @@ Run it. The first point should be where the drone is (the drone does not move ye
 
 ## Step 5: make the drone fly {#tutorial_step5}
 
-So far the trajectory goes nowhere. To fly, we need two more things:
+So far the trajectory goes nowhere. To move the drone we need two more things:
 
 - a **vehicle**, which is the connection to the autopilot (`path3d::MavsdkVehicle`);
-- a **commander** (`path3d::CommanderThread`), which sends the newest trajectory to the vehicle 50 times per second. It sends nothing unless the drone is armed and in external control mode. It also holds the position if the trajectory gets old.
+- a **commander** (`path3d::CommanderThread`), which sends the newest trajectory to the vehicle 50 times per second. It sends nothing unless the drone is armed and in GUIDED mode. It also holds the position if the trajectory gets old.
 
-Add them to `main()`, after the simulation reader:
+To keep the program short, we assume that **the drone is already flying**. Take off before you start the program: use QGroundControl's *Takeoff*, or in the `ardupilot` window of tmux type `mode guided`, `arm throttle`, `takeoff 5`. The commander only follows our trajectory once the drone is armed and in GUIDED mode, so the program waits for that.
+
+Add the vehicle and the commander to `main()`, after the simulation reader:
 
 @code{.cpp}
 Topic<VehicleState> vehicle_state;
@@ -330,40 +332,22 @@ CommanderThread commander(vehicle, trajectories, vehicle_state, sensors.pose, co
 commander.start();
 @endcode
 
-Now the commander is ready, but the drone is on the ground. The commander does not start the drone. We do it, in the right order:
-
-First a small helper that waits until something is true, and gives up after a timeout:
-
-@code{.cpp}
-template <class Done>
-bool wait_until(Done done, std::chrono::seconds timeout) {
-	const auto deadline = std::chrono::steady_clock::now() + timeout;
-	while (!done()) {
-		if (std::chrono::steady_clock::now() > deadline) return false;
-		std::this_thread::sleep_for(100ms);
-	}
-	return true;
-}
-@endcode
-
-Then the start, in the right order:
+Then wait until the drone is ready. `latest_state` tells the state of the autopilot:
 
 @code{.cpp}
 UavClient uav(sensors.pose);   // create it early, before the reader, like the other listeners
 
-// the autopilot is found and the drone knows its frames (the drone must stand still)
-wait_until([&] {
+while (true) {
 	const auto state = latest_state->latest();
-	return state && state->connected && state->frames_ready;
-}, 120s);
-
-vehicle.arm(5s);                                   // start the motors
-vehicle.takeoff(5.0, 20s);                         // climb to 5 m
-wait_until([&] { return uav.position()->z() > 4.5; }, 60s);
-vehicle.set_mode(FlightMode::External, 5s);        // from now on the commander controls the drone
+	if (state && uav.pose() && state->connected && state->armed &&
+	    state->frames_ready && state->mode == FlightMode::External) break;
+	std::this_thread::sleep_for(2s);
+}
 @endcode
 
-After that we know where the drone hovers, and we can choose the goal. This is how the demo makes a line of a given length in a given direction:
+(`FlightMode::External` is how the system calls "the autopilot follows our setpoints". For ArduPilot it is GUIDED mode. `frames_ready` means that the vehicle has found how its own coordinates relate to the simulator's. It takes a few seconds, and the drone should not move much during them.)
+
+Now we know where the drone is, and we can choose the goal. This is how the demo makes a line of a given length in a given direction:
 
 @code{.cpp}
 const Eigen::Vector3d start = *uav.position();
@@ -372,16 +356,15 @@ const Eigen::Vector3d goal = start + distance * Eigen::Vector3d(std::cos(yaw), s
 
 The yaw is the direction of the line in the world frame, in radians, counter-clockwise from east: 0 is east and pi/2 is north. The goal has the same height as the start, so the drone flies a horizontal line.
 
-Create the planners and their threads **after** this point, with this goal, and start them. Then wait until the drone is near the goal and land:
+Create the planners and their threads **after** this point, with this goal, and start them. Then wait until the drone is near the goal:
 
 @code{.cpp}
 while ((*uav.position() - goal).norm() > 0.5) {
-	std::this_thread::sleep_for(100ms);
+	std::this_thread::sleep_for(1s);
 }
-vehicle.land(10s);
 @endcode
 
-You can read the whole program in `3dpath/apps/line_planner_demo.cpp`.
+When the program ends, the drone stays where it is. You can read the whole program in `3dpath/apps/line_planner_demo.cpp`.
 
 ## Step 6: do not fly into things {#tutorial_step6}
 
@@ -418,7 +401,15 @@ The finished planners in `line_planner.hpp` have these checks.
 
 ## Run the finished demo {#tutorial_run}
 
-The script builds the package and runs the demo:
+First get the drone flying (see step 5): start the simulation with `./scripts/start.sh`, then take off in GUIDED mode, for example in the `ardupilot` window:
+
+@code{.sh}
+mode guided
+arm throttle
+takeoff 5
+@endcode
+
+Then, in the `planner` window, run the script. It builds the package and starts the demo:
 
 @code{.sh}
 ./scripts/run_line_planner.sh [yaw] [distance] [world]
@@ -428,7 +419,7 @@ The script builds the package and runs the demo:
 - `distance` is the length of the line in meters. Default 10.
 - `world` is `default` or `city`. By default it is the world that `start.sh` started.
 
-Examples, in the `planner` window of tmux:
+Examples:
 
 @code{.sh}
 ./scripts/run_line_planner.sh                # 10 m east
@@ -437,8 +428,6 @@ Examples, in the `planner` window of tmux:
 ./scripts/run_line_planner.sh -n 0 5         # do not rebuild, 5 m east
 @endcode
 
-What happens: the program waits for the simulation and the autopilot, arms the drone and takes off to 5 meters, then flies the line at 2 m/s and prints the distance to the goal every second. It lands at the end. Press Ctrl-C to stop it and land at once.
+What happens: the program waits until the drone is armed and in GUIDED mode (while it waits, it prints what is missing), then flies the line at 2 m/s from where the drone is, at the same height, and prints the distance to the goal every second. At the end the drone hovers at the goal. Press Ctrl-C to stop the program. To land, use QGroundControl or type `mode land` in the `ardupilot` window.
 
 The map is published for Foxglove as in `path3d_main` (`/map/occupied_voxels`), so you can watch the drone and the obstacles.
-
-
