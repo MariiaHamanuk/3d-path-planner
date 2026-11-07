@@ -5,11 +5,11 @@
 #include <concepts>
 #include <cstdint>
 
-/// Message contract between the local and the global planner (see GlobalPlanningStage and
-/// LocalPlanningStage in stages.hpp):
-///   - the local stage sends at most one request at a time and numbers them with `id`;
-///   - the global stage answers every request exactly once, echoing it in `request_id`;
-///   - the local stage drops answers to requests older than its newest one.
+/// Message contract between the local and the global planner (see GlobalPlanningThread and
+/// LocalPlanningThread in threads.hpp):
+///   - the local thread sends at most one request at a time and numbers them with `id`;
+///   - the global thread answers every request exactly once, echoing it in `request_id`;
+///   - the local thread drops answers to requests older than its newest one.
 namespace path3d {
 
 /// A stamped replanning request with a writable numeric `id`.

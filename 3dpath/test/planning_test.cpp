@@ -1,7 +1,7 @@
 #include "fake_map_view.hpp"
 #include "planning/global_planner.hpp"
 #include "planning/local_planner.hpp"
-#include "pipeline/stages.hpp"
+#include "pipeline/threads.hpp"
 
 #include <gtest/gtest.h>
 
@@ -158,7 +158,7 @@ GlobalPath answer_to(std::uint64_t request_id) {
 
 }
 
-TEST(GlobalPlanningStage, AnswersTheInitialRequestOnceWithItsId) {
+TEST(GlobalPlanningThread, AnswersTheInitialRequestOnceWithItsId) {
 	Topic<FakeView::Update> maps;
 	Topic<StampedPose> poses;
 	MapClient<FakeView> map_client(maps);
@@ -166,14 +166,14 @@ TEST(GlobalPlanningStage, AnswersTheInitialRequestOnceWithItsId) {
 	Pipe<GlobalPath, ReplanRequest> pipe;
 	auto routes = pipe.down().subscribe_queue(8);
 	FailingGlobalPlanner planner(map_client, uav);
-	GlobalPlanningStage<FakeView, GlobalPath, ReplanRequest> stage(
+	GlobalPlanningThread<FakeView, GlobalPath, ReplanRequest> thread(
 	    planner, pipe, request_at(Eigen::Vector3d(0, 0, 1), 3), global_config(20ms));
 	maps.publish(keyframe_update(1));
-	stage.start();
+	thread.start();
 	ASSERT_TRUE(wait_for([&] { return planner.call_count() >= 1; }, 2s));
 	/// many more loop iterations
 	std::this_thread::sleep_for(100ms);
-	stage.stop();
+	thread.stop();
 	/// planned once, no requests arrived
 	EXPECT_EQ(planner.call_count(), 1);
 	const Msg<GlobalPath> answer = routes->pop(10ms);
@@ -195,16 +195,16 @@ TEST(Planning, LocalRequestTriggersReplanFromItsPosition) {
 	UavClient uav(poses);
 	StubGlobalPlanner global(global_map, uav);
 	StubLocalPlanner local(local_map, uav);
-	GlobalPlanningStage<FakeView, GlobalPath, ReplanRequest> global_stage(
+	GlobalPlanningThread<FakeView, GlobalPath, ReplanRequest> global_thread(
 	    global, pipe, request_at(Eigen::Vector3d(0, 0, 1)), global_config(20ms));
 	Topic<Trajectory> trajectories;
-	LocalPlanningStage<FakeView, GlobalPath, ReplanRequest> local_stage(local, pipe, trajectories,
-	                                                                    local_config(50.0));
+	LocalPlanningThread<FakeView, GlobalPath, ReplanRequest> local_thread(local, pipe, trajectories,
+	                                                                      local_config(50.0));
 
 	maps.publish(keyframe_update(1));
 	poses.publish(pose_at(Eigen::Vector3d(2, 0, 1)));
-	global_stage.start();
-	local_stage.start();
+	global_thread.start();
+	local_thread.start();
 
 	const auto replanned_from = [&] {
 		const auto starts = global.starts();
@@ -214,18 +214,18 @@ TEST(Planning, LocalRequestTriggersReplanFromItsPosition) {
 	ASSERT_TRUE(wait_for(replanned_from, 2s));
 	/// the replan reached the local
 	ASSERT_TRUE(wait_for([&] { return local.path_count() >= 2; }, 2s));
-	global_stage.stop();
-	local_stage.stop();
+	global_thread.stop();
+	local_thread.stop();
 
 	EXPECT_TRUE(local.requested());
-	EXPECT_EQ(local_stage.sent_request_count(), 1u);
-	EXPECT_EQ(local_stage.stale_route_count(), 0u);
+	EXPECT_EQ(local_thread.sent_request_count(), 1u);
+	EXPECT_EQ(local_thread.stale_route_count(), 0u);
 	/// initial plan from the start, then the replan
 	ASSERT_EQ(global.starts().size(), 2u);
 	EXPECT_TRUE(global.starts().front().isApprox(Eigen::Vector3d(0, 0, 1)));
 }
 
-TEST(LocalPlanningStage, SendsOneRequestAtATimeAndDropsStaleAnswers) {
+TEST(LocalPlanningThread, SendsOneRequestAtATimeAndDropsStaleAnswers) {
 	Topic<FakeView::Update> maps;
 	Topic<StampedPose> poses;
 	Pipe<GlobalPath, ReplanRequest> pipe;
@@ -234,11 +234,11 @@ TEST(LocalPlanningStage, SendsOneRequestAtATimeAndDropsStaleAnswers) {
 	UavClient uav(poses);
 	AlwaysRequestingPlanner local(map_client, uav);
 	Topic<Trajectory> trajectories;
-	LocalPlanningStage<FakeView, GlobalPath, ReplanRequest> stage(local, pipe, trajectories,
-	                                                              local_config(100.0));
+	LocalPlanningThread<FakeView, GlobalPath, ReplanRequest> thread(local, pipe, trajectories,
+	                                                                local_config(100.0));
 	maps.publish(keyframe_update(1));
 	poses.publish(pose_at(Eigen::Vector3d(0, 0, 1)));
-	stage.start();
+	thread.start();
 
 	const Msg<ReplanRequest> first = requests->pop(2s);
 	ASSERT_NE(first, nullptr);
@@ -246,23 +246,23 @@ TEST(LocalPlanningStage, SendsOneRequestAtATimeAndDropsStaleAnswers) {
 	/// ~10 more cycles, each one asking again
 	std::this_thread::sleep_for(100ms);
 	/// still waiting for the answer to request 1
-	EXPECT_EQ(stage.sent_request_count(), 1u);
+	EXPECT_EQ(thread.sent_request_count(), 1u);
 	EXPECT_EQ(requests->pop(0ms), nullptr);
 
 	/// answers an older request
 	pipe.down().publish(answer_to(0));
-	ASSERT_TRUE(wait_for([&] { return stage.stale_route_count() == 1; }, 2s));
+	ASSERT_TRUE(wait_for([&] { return thread.stale_route_count() == 1; }, 2s));
 	EXPECT_TRUE(local.seen().empty());
 
 	pipe.down().publish(answer_to(1));
 	const Msg<ReplanRequest> second = requests->pop(2s);
-	stage.stop();
+	thread.stop();
 	ASSERT_NE(second, nullptr);
 	EXPECT_EQ(second->id, 2u);
 	EXPECT_EQ(local.seen(), std::vector<std::uint64_t>{1});
 }
 
-TEST(LocalPlanningStage, UnansweredRequestTimesOutAndIsSentAgain) {
+TEST(LocalPlanningThread, UnansweredRequestTimesOutAndIsSentAgain) {
 	Topic<FakeView::Update> maps;
 	Topic<StampedPose> poses;
 	Pipe<GlobalPath, ReplanRequest> pipe;
@@ -271,11 +271,11 @@ TEST(LocalPlanningStage, UnansweredRequestTimesOutAndIsSentAgain) {
 	UavClient uav(poses);
 	AlwaysRequestingPlanner local(map_client, uav);
 	Topic<Trajectory> trajectories;
-	LocalPlanningStage<FakeView, GlobalPath, ReplanRequest> stage(local, pipe, trajectories,
-	                                                              local_config(100.0, 100ms));
+	LocalPlanningThread<FakeView, GlobalPath, ReplanRequest> thread(local, pipe, trajectories,
+	                                                                local_config(100.0, 100ms));
 	maps.publish(keyframe_update(1));
 	poses.publish(pose_at(Eigen::Vector3d(0, 0, 1)));
-	stage.start();
+	thread.start();
 
 	const Msg<ReplanRequest> first = requests->pop(2s);
 	ASSERT_NE(first, nullptr);
@@ -283,16 +283,16 @@ TEST(LocalPlanningStage, UnansweredRequestTimesOutAndIsSentAgain) {
 	const Msg<ReplanRequest> second = requests->pop(2s);  ///< no answer ever comes
 	ASSERT_NE(second, nullptr);
 	EXPECT_EQ(second->id, 2u);
-	EXPECT_GE(stage.request_timeout_count(), 1u);
+	EXPECT_GE(thread.request_timeout_count(), 1u);
 
 	/// the late answer to the lost request is stale
 	pipe.down().publish(answer_to(1));
-	ASSERT_TRUE(wait_for([&] { return stage.stale_route_count() == 1; }, 2s));
-	stage.stop();
+	ASSERT_TRUE(wait_for([&] { return thread.stale_route_count() == 1; }, 2s));
+	thread.stop();
 	EXPECT_TRUE(local.seen().empty());
 }
 
-TEST(LocalPlanningStage, PublishesThePlannersTrajectories) {
+TEST(LocalPlanningThread, PublishesThePlannersTrajectories) {
 	class StraightAheadPlanner : public Local {
 	public:
 		StraightAheadPlanner(MapClient<FakeView>& map, UavClient& uav) : Local(map, uav) {}
@@ -314,14 +314,14 @@ TEST(LocalPlanningStage, PublishesThePlannersTrajectories) {
 	MapClient<FakeView> map_client(maps);
 	UavClient uav(poses);
 	StraightAheadPlanner local(map_client, uav);
-	LocalPlanningStage<FakeView, GlobalPath, ReplanRequest> stage(local, pipe, trajectories,
-	                                                              local_config(100.0));
+	LocalPlanningThread<FakeView, GlobalPath, ReplanRequest> thread(local, pipe, trajectories,
+	                                                                local_config(100.0));
 	maps.publish(keyframe_update(1));
 	poses.publish(pose_at(Eigen::Vector3d(0, 0, 1)));
-	stage.start();
+	thread.start();
 	ASSERT_TRUE(wait_for([&] { return received->size() >= 3; }, 2s));
-	stage.stop();
-	EXPECT_EQ(stage.published_trajectory_count(), received->size());
+	thread.stop();
+	EXPECT_EQ(thread.published_trajectory_count(), received->size());
 	const Msg<Trajectory> first = received->pop(0ms);
 	ASSERT_NE(first, nullptr);
 	EXPECT_DOUBLE_EQ(first->stamp, 1.0);

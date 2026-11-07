@@ -141,7 +141,7 @@ bool MavsdkVehicle::set_mode(FlightMode mode, std::chrono::milliseconds timeout)
 		case FlightMode::External: {
 			if (!offboard || !position) return false;
 			// MAVSDK refuses to start offboard control without a setpoint: hold the current position
-			// until the CommanderStage sends its own.
+			// until the CommanderThread sends its own.
 			const Msg<StampedPose> world = m_world_pose->latest();
 			const double yaw = world ? yaw_of(world->pose.orientation) : 0.0;
 			const mavsdk::Offboard::PositionNedYaw hold{position->north_m, position->east_m,

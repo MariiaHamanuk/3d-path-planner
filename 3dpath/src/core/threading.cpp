@@ -5,7 +5,7 @@
 
 namespace path3d {
 
-Stage::~Stage() {
+Thread::~Thread() {
 	/// A joinable thread here means a derived class forgot stop(); std::thread would terminate.
 	if (m_thread.joinable()) {
 		m_stop_requested = true;
@@ -13,7 +13,7 @@ Stage::~Stage() {
 	}
 }
 
-void Stage::start() {
+void Thread::start() {
 	if (m_thread.joinable()) return;
 	m_stop_requested = false;
 	m_thread = std::thread([this] {
@@ -27,24 +27,24 @@ void Stage::start() {
 	});
 }
 
-void Stage::stop() {
+void Thread::stop() {
 	m_stop_requested = true;
 	on_stop();
 	if (m_thread.joinable()) m_thread.join();
 }
 
-std::string Stage::error() const {
+std::string Thread::error() const {
 	std::lock_guard<std::mutex> lock(m_error_mutex);
 	return m_error;
 }
 
-void Stage::fail(const std::string& message) {
+void Thread::fail(const std::string& message) {
 	{
 		std::lock_guard<std::mutex> lock(m_error_mutex);
 		m_error = message;
 	}
 	m_failed = true;
-	std::cerr << "stage failed: " << message << std::endl;
+	std::cerr << "thread failed: " << message << std::endl;
 }
 
 Rate::Rate(double hz)

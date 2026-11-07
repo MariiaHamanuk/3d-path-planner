@@ -1,18 +1,18 @@
 /** @file main.cpp
- * @brief Entry point of the planner: wires the stages that exist so far.
- * SimReader ─► SensorTopics ─► MappingStage(LogOddsMapper) ─► map updates ─► MapClient ─► status line
+ * @brief Entry point of the planner: wires the threads that exist so far.
+ * SimReader ─► SensorTopics ─► MappingThread(LogOddsMapper) ─► map updates ─► MapClient ─► status line
  *                                                                          └─► LogOddsMapVisualizer ─► Foxglove
  * Usage: ros2 run path3d path3d_main [world]      (world = default | city)
  * The planners are not implemented yet. When a GlobalPlanner<LogOddsGridMap> and a
- * LocalPlanner<LogOddsGridMap> exist, add GlobalPlanningStage and LocalPlanningStage here, each
+ * LocalPlanner<LogOddsGridMap> exist, add GlobalPlanningThread and LocalPlanningThread here, each
  * with its part of `config` (planners get a MapClient on `map_updates` and a UavClient on
  * `sensors.pose`). Create every subscriber before the reader. To fly, add a MavsdkVehicle
- * (config.mavsdk) and a CommanderStage that follows the LocalPlanningStage's trajectories.
+ * (config.mavsdk) and a CommanderThread that follows the LocalPlanningThread's trajectories.
  */
 #include "io/sim_reader.hpp"
 #include "mapping/log_odds_mapper.hpp"
 #include "pipeline/clients.hpp"
-#include "pipeline/stages.hpp"
+#include "pipeline/threads.hpp"
 #include "visualization/log_odds_map_visualizer.hpp"
 
 #include <atomic>
@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
 	config.mapping.publish_period = 0.1;
 	config.map_visualizer.rate_hz = 5.0;
 	config.log_odds_mapper.resolution = 0.5;
-	
+
 	config.log_odds_mapper.max_range = 30.0f;
 
 	/// Declared in dependency order: destroyed in reverse, so the reader stops first.
@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
 	/// A reader of the map, as a planner will be (created before the mapper publishes).
 	path3d::MapClient<Map> map_client(map_updates);
 	path3d::LogOddsMapper mapper(config.log_odds_mapper);
-	path3d::MappingStage<Map> mapping(sensors, mapper, map_updates, config.mapping);
+	path3d::MappingThread<Map> mapping(sensors, mapper, map_updates, config.mapping);
 	mapping.start();
 	path3d::SimReader reader(config.sim_reader, sensors);
 	/// After the reader, which brings up ROS.

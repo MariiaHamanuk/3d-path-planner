@@ -1,5 +1,5 @@
 #include "fake_vehicle.hpp"
-#include "pipeline/stages.hpp"
+#include "pipeline/threads.hpp"
 
 #include <gtest/gtest.h>
 
@@ -81,7 +81,7 @@ struct Fixture {
 	Topic<StampedPose> poses;
 	FakeVehicle vehicle{state};
 	PoseFeed feed{poses, Eigen::Vector3d(3, 4, 5)};
-	CommanderStage commander;
+	CommanderThread commander;
 
 	explicit Fixture(CommanderConfig config = {.rate_hz = 100.0})
 	    : commander(vehicle, trajectories, state, poses, config) {}
@@ -89,7 +89,7 @@ struct Fixture {
 
 }
 
-TEST(CommanderStage, SendsNothingUnlessTheVehicleIsControllable) {
+TEST(CommanderThread, SendsNothingUnlessTheVehicleIsControllable) {
 	Fixture f;
 	f.trajectories.publish(line(f.feed.now(), f.feed.now(), f.feed.now() + 10.0));
 	VehicleState disconnected = controllable();
@@ -109,7 +109,7 @@ TEST(CommanderStage, SendsNothingUnlessTheVehicleIsControllable) {
 	EXPECT_TRUE(f.vehicle.sent().empty());
 }
 
-TEST(CommanderStage, SendsNothingBeforeTheFirstTrajectory) {
+TEST(CommanderThread, SendsNothingBeforeTheFirstTrajectory) {
 	Fixture f;
 	f.vehicle.report(controllable());
 	f.commander.start();
@@ -119,7 +119,7 @@ TEST(CommanderStage, SendsNothingBeforeTheFirstTrajectory) {
 	EXPECT_TRUE(f.vehicle.sent().empty());
 }
 
-TEST(CommanderStage, FollowsTheTrajectoryAtThePoseTime) {
+TEST(CommanderThread, FollowsTheTrajectoryAtThePoseTime) {
 	Fixture f;
 	f.vehicle.report(controllable());
 	f.commander.start();
@@ -140,7 +140,7 @@ TEST(CommanderStage, FollowsTheTrajectoryAtThePoseTime) {
 	}
 }
 
-TEST(CommanderStage, HoldsAtTheLatchedPoseWhenTheTrajectoryRunsOut) {
+TEST(CommanderThread, HoldsAtTheLatchedPoseWhenTheTrajectoryRunsOut) {
 	Fixture f;
 	f.vehicle.report(controllable());
 	const TimeSec now = f.feed.now();
@@ -157,7 +157,7 @@ TEST(CommanderStage, HoldsAtTheLatchedPoseWhenTheTrajectoryRunsOut) {
 	EXPECT_TRUE(last.acceleration.isZero());
 }
 
-TEST(CommanderStage, HoldsWhenTheTrajectoryIsTooOld) {
+TEST(CommanderThread, HoldsWhenTheTrajectoryIsTooOld) {
 	Fixture f;
 	f.vehicle.report(controllable());
 	const TimeSec now = f.feed.now();
@@ -169,7 +169,7 @@ TEST(CommanderStage, HoldsWhenTheTrajectoryIsTooOld) {
 	EXPECT_EQ(f.commander.sent_count(), 0u);
 }
 
-TEST(CommanderStage, HoldsWhenThePoseStopsArriving) {
+TEST(CommanderThread, HoldsWhenThePoseStopsArriving) {
 	Fixture f({.rate_hz = 100.0, .max_trajectory_age = 100.0, .max_pose_silence = 50ms});
 	f.vehicle.report(controllable());
 	const TimeSec now = f.feed.now();
@@ -185,7 +185,7 @@ TEST(CommanderStage, HoldsWhenThePoseStopsArriving) {
 	EXPECT_TRUE(f.vehicle.sent().back().velocity.isZero());
 }
 
-TEST(CommanderStage, StopsSendingWhenTheModeLeavesExternal) {
+TEST(CommanderThread, StopsSendingWhenTheModeLeavesExternal) {
 	Fixture f;
 	f.vehicle.report(controllable());
 	const TimeSec now = f.feed.now();

@@ -38,7 +38,7 @@ template <class V>
 concept MapViewType = std::derived_from<V, MapView>;
 
 /// Message that carries a map from the mapper to its readers. What it holds is up to the map type;
-/// the transport (Mapper, MappingStage, MapClient) only looks at these fields:
+/// the transport (Mapper, MappingThread, MapClient) only looks at these fields:
 ///   keyframe      true: the update holds the whole map and can be applied to any copy;
 ///                 false: a diff, applicable only to a copy at exactly `from_version`
 ///   from_version  version a diff builds on (unused for a keyframe)

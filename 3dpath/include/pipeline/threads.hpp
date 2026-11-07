@@ -23,7 +23,7 @@
 namespace path3d {
 
 /**
- * @brief Stage that turns synchronized sensor frames into map updates.
+ * @brief Thread that turns synchronized sensor frames into map updates.
  *
  * Integrates every frame into the Mapper, then publishes a keyframe first and periodically after
  * that, with diffs (throttled by sim time) in between. Subscribes in the constructor, so create it
@@ -31,7 +31,7 @@ namespace path3d {
  * @tparam M Map type the readers keep copies of.
  */
 template <ReplicatedMap M>
-class MappingStage : public Stage {
+class MappingThread : public Thread {
 public:
 	using Update = typename M::Update;
 
@@ -39,13 +39,13 @@ public:
 	 * @param in Sensor streams to synchronize.
 	 * @param mapper Mapper that builds the map and produces the updates.
 	 * @param out Topic the updates are published on.
-	 * @param config Stage settings (see MappingConfig).
+	 * @param config Thread settings (see MappingConfig).
 	 */
-	MappingStage(SensorTopics& in, Mapper<M>& mapper, Topic<Update>& out,
-	             const MappingConfig& config = {})
+	MappingThread(SensorTopics& in, Mapper<M>& mapper, Topic<Update>& out,
+	              const MappingConfig& config = {})
 	    : m_sync(in, config.sync), m_mapper(mapper), m_config(config), m_out(out) {}
 
-	~MappingStage() override { stop(); }
+	~MappingThread() override { stop(); }
 
 	std::size_t integrated_count() const { return m_integrated_count; }
 	std::size_t dropped_count() const { return m_sync.dropped_count(); }
@@ -106,7 +106,7 @@ private:
 };
 
 /**
- * @brief Stage that answers replanning requests with plans.
+ * @brief Thread that answers replanning requests with plans.
  *
  * Event-driven: waits for requests, calls the planner once its map is ready, and publishes each
  * plan with the id of the request it answers. Only the newest unanswered request is kept.
@@ -115,23 +115,23 @@ private:
  * @tparam R Replanning request received from the pipe.
  */
 template <ReplicatedMap M, PlanAnswer P, PlanRequest R>
-class GlobalPlanningStage : public Stage {
+class GlobalPlanningThread : public Thread {
 public:
 	/**
 	 * @param planner Planner that computes the plans.
 	 * @param pipe Link to the local planner: requests come up, plans go down.
 	 * @param initial First request, handled at start (use id 0); empty for none.
-	 * @param config Stage settings (see GlobalPlanningConfig).
+	 * @param config Thread settings (see GlobalPlanningConfig).
 	 */
-	GlobalPlanningStage(GlobalPlanner<M, R, P>& planner, Pipe<P, R>& pipe, std::optional<R> initial,
-	                    const GlobalPlanningConfig& config = {})
+	GlobalPlanningThread(GlobalPlanner<M, R, P>& planner, Pipe<P, R>& pipe, std::optional<R> initial,
+	                     const GlobalPlanningConfig& config = {})
 	    : m_planner(planner),
 	      m_requests(pipe.up().subscribe_queue(1)),
 	      m_down(pipe.down()),
 	      m_initial_request(initial ? std::make_shared<const R>(*initial) : nullptr),
 	      m_wait_for_plan(config.request_wait) {}
 
-	~GlobalPlanningStage() override { stop(); }
+	~GlobalPlanningThread() override { stop(); }
 
 	std::size_t plan_call_count() const { return m_plan_call_count; }
 
@@ -165,7 +165,7 @@ private:
 };
 
 /**
- * @brief Stage that runs the local planner at a fixed rate.
+ * @brief Thread that runs the local planner at a fixed rate.
  *
  * Each cycle hands the newest global plan to the planner and publishes the replan request it
  * returns. Requests are numbered and sent one at a time; an unanswered request times out, and
@@ -175,23 +175,23 @@ private:
  * @tparam R Replanning request published up the pipe.
  */
 template <ReplicatedMap M, PlanAnswer P, PlanRequest R>
-class LocalPlanningStage : public Stage {
+class LocalPlanningThread : public Thread {
 public:
 	/**
 	 * @param planner Planner that follows the plans.
 	 * @param pipe Link to the global planner: plans come down, requests go up.
-	 * @param trajectories Topic the planner's trajectories are published on (for the CommanderStage).
-	 * @param config Stage settings (see LocalPlanningConfig).
+	 * @param trajectories Topic the planner's trajectories are published on (for the CommanderThread).
+	 * @param config Thread settings (see LocalPlanningConfig).
 	 */
-	LocalPlanningStage(LocalPlanner<M, P, R>& planner, Pipe<P, R>& pipe,
-	                   Topic<Trajectory>& trajectories, const LocalPlanningConfig& config = {})
+	LocalPlanningThread(LocalPlanner<M, P, R>& planner, Pipe<P, R>& pipe,
+	                    Topic<Trajectory>& trajectories, const LocalPlanningConfig& config = {})
 	    : m_planner(planner),
 	      m_config(config),
 	      m_up(pipe.up()),
 	      m_routes(pipe.down().subscribe_queue(1)),
 	      m_trajectories(trajectories) {}
 
-	~LocalPlanningStage() override { stop(); }
+	~LocalPlanningThread() override { stop(); }
 
 	std::size_t cycle_count() const { return m_cycle_count; }
 	std::size_t sent_request_count() const { return m_sent_request_count; }
@@ -259,7 +259,7 @@ private:
 };
 
 /**
- * @brief Stage that streams the newest trajectory to the vehicle at a fixed rate.
+ * @brief Thread that streams the newest trajectory to the vehicle at a fixed rate.
  *
  * The single place for the rules that keep the drone safe when something upstream misbehaves:
  *  - sends nothing unless the vehicle is connected, armed, ready for setpoints and in
@@ -269,24 +269,24 @@ private:
  *  - holds position (a setpoint latched once at the current pose) when the pose is stale, the
  *    trajectory is too old (the planner stopped refreshing it) or has run out.
  */
-class CommanderStage : public Stage {
+class CommanderThread : public Thread {
 public:
 	/**
 	 * @param vehicle Vehicle the setpoints are sent to.
 	 * @param trajectories Trajectories from the local planner (the newest one is followed).
 	 * @param state Vehicle status, as published by the vehicle.
 	 * @param poses Drone pose in the world frame (its stamp is the commander's clock).
-	 * @param config Stage settings (see CommanderConfig).
+	 * @param config Thread settings (see CommanderConfig).
 	 */
-	CommanderStage(Vehicle& vehicle, Topic<Trajectory>& trajectories, Topic<VehicleState>& state,
-	               Topic<StampedPose>& poses, const CommanderConfig& config = {})
+	CommanderThread(Vehicle& vehicle, Topic<Trajectory>& trajectories, Topic<VehicleState>& state,
+	                Topic<StampedPose>& poses, const CommanderConfig& config = {})
 	    : m_vehicle(vehicle),
 	      m_config(config),
 	      m_trajectories(trajectories.subscribe_latest()),
 	      m_state(state.subscribe_latest()),
 	      m_poses(poses.subscribe_latest()) {}
 
-	~CommanderStage() override { stop(); }
+	~CommanderThread() override { stop(); }
 
 	std::size_t sent_count() const { return m_sent_count; }
 	std::size_t hold_count() const { return m_hold_count; }

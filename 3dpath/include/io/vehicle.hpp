@@ -30,12 +30,12 @@ public:
 	virtual bool arm(std::chrono::milliseconds timeout) = 0;
 	/// Takes off to `altitude_m` above the current position; true once accepted (needs armed motors;
 	/// the implementation picks the takeoff mode itself). Afterwards call set_mode(External) to
-	/// hand control to the CommanderStage.
+	/// hand control to the CommanderThread.
 	virtual bool takeoff(double altitude_m, std::chrono::milliseconds timeout) = 0;
 	/// Lands where the vehicle is; true once accepted.
 	virtual bool land(std::chrono::milliseconds timeout) = 0;
 	/// Commands one setpoint (world frame). Non-blocking and thread-safe; meant to be called at a
-	/// steady rate by the CommanderStage. Ignored while the vehicle is not ready for setpoints.
+	/// steady rate by the CommanderThread. Ignored while the vehicle is not ready for setpoints.
 	virtual void send(const Setpoint& setpoint) = 0;
 
 protected:

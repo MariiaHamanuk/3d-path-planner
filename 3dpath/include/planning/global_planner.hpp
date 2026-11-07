@@ -21,11 +21,11 @@ public:
 	GlobalPlanner& operator=(const GlobalPlanner&) = delete;
 
 	/// Brings the map copy up to date; call once before each plan(), on the planner's thread. True
-	/// once a plan can be made (the map copy holds a full map). The stage holds requests until then.
+	/// once a plan can be made (the map copy holds a full map). The thread holds requests until then.
 	bool prepare() { return m_map.sync(); }
 
 	/// The answer to `request`. Always returns one: when no path exists, return a plan that says so
-	/// (for GlobalPath: status Failed), so the local planner is never left waiting. The stage fills
+	/// (for GlobalPath: status Failed), so the local planner is never left waiting. The thread fills
 	/// in `request_id` and publishes the result.
 	virtual P plan(const R& request) = 0;
 

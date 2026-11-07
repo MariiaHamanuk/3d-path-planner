@@ -57,7 +57,7 @@ constexpr FlightMode to_flight_mode(mavsdk::Telemetry::FlightMode mode) {
  * returns at once. This is the MAVSDK-facing I/O layer, so its header exposes MAVSDK types.
  *
  * Note: while offboard control is active MAVSDK keeps re-sending the newest setpoint by itself, so
- * if the CommanderStage dies the vehicle keeps flying to the last commanded position.
+ * if the CommanderThread dies the vehicle keeps flying to the last commanded position.
  */
 class MavsdkVehicle : public Vehicle {
 public:
@@ -75,7 +75,7 @@ public:
 	bool set_mode(FlightMode mode, std::chrono::milliseconds timeout) override;
 	bool arm(std::chrono::milliseconds timeout) override;
 	/// Takes off to `altitude_m`; MAVSDK puts the vehicle into its takeoff mode itself. Afterwards
-	/// call set_mode(External) to hand control to the CommanderStage.
+	/// call set_mode(External) to hand control to the CommanderThread.
 	bool takeoff(double altitude_m, std::chrono::milliseconds timeout) override;
 	bool land(std::chrono::milliseconds timeout) override;
 	/// Converts the setpoint to NED and hands it to MAVSDK's offboard control; dropped until the

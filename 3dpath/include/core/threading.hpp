@@ -6,7 +6,7 @@
 #include <string>
 #include <thread>
 
-/// Thread lifecycle and loop pacing for pipeline stages. Stages talk to each other through
+/// Thread lifecycle and loop pacing for pipeline threads. Threads talk to each other through
 /// the channels in communication.hpp.
 namespace path3d {
 
@@ -17,12 +17,12 @@ namespace path3d {
  * failed() becomes true and error() returns the message, so the owner can shut the pipeline
  * down.
  */
-class Stage {
+class Thread {
 public:
-	Stage() = default;
-	virtual ~Stage();
-	Stage(const Stage&) = delete;
-	Stage& operator=(const Stage&) = delete;
+	Thread() = default;
+	virtual ~Thread();
+	Thread(const Thread&) = delete;
+	Thread& operator=(const Thread&) = delete;
 
 	void start();  ///< no-op if already running
 	void stop();   ///< signals, calls on_stop(), joins; safe to call repeatedly

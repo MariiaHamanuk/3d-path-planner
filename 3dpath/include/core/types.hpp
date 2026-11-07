@@ -144,7 +144,7 @@ enum class ReplanReason { NoPath,
 
 /**
  * @brief Local -> global: "plan again from `position`". `id` increases with every request and is
- * echoed in the answer; the LocalPlanningStage assigns it.
+ * echoed in the answer; the LocalPlanningThread assigns it.
  */
 struct ReplanRequest {
 	TimeSec stamp = 0.0;

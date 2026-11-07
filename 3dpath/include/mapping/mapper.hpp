@@ -12,7 +12,7 @@ namespace path3d {
 /**
  * @brief Builds a map from sensor data and hands out updates for it. The rest of the system depends
  * only on this interface, so map representations (occupancy grid, TSDF + ESDF, ...) can be
- * swapped without touching the stages around them. M is the map type the readers keep copies
+ * swapped without touching the threads around them. M is the map type the readers keep copies
  * of (see ReplicatedMap in map_view.hpp); planners are templated on the same M and read it
  * through a MapClient.
  */

@@ -14,7 +14,7 @@
 #include <utility>
 #include <vector>
 
-/// In-process publish/subscribe between pipeline stages. No ROS types here.
+/// In-process publish/subscribe between pipeline threads. No ROS types here.
 ///
 ///   Topic<T>          publisher side; fans one message out to any number of subscribers
 ///   LatestSlot<T>     subscriber that only keeps the newest message (state: pose, map, path)
@@ -324,8 +324,8 @@ private:
 };
 
 /**
- * @brief Bidirectional link between two stages, one Topic per direction. `down` carries messages
- * from the first stage to the second (e.g. routes from the global planner to the local
+ * @brief Bidirectional link between two threads, one Topic per direction. `down` carries messages
+ * from the first thread to the second (e.g. routes from the global planner to the local
  * planner), `up` carries messages back (e.g. replan requests). Each subscriber picks its own
  * delivery policy.
  */

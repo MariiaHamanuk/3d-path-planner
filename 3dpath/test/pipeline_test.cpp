@@ -1,6 +1,6 @@
 #include "pipeline/clients.hpp"
 #include "fake_map_view.hpp"
-#include "pipeline/stages.hpp"
+#include "pipeline/threads.hpp"
 
 #include <gtest/gtest.h>
 
@@ -92,7 +92,7 @@ TEST(Pipeline, DepthFlowsToMapperInOrderWithInterpolatedPoses) {
 	CollectingMapper mapper;
 	/// a reader of the map, created before the mapper publishes
 	MapClient<FakeView> client(maps);
-	MappingStage<FakeView> mapping(sensors, mapper, maps, mapping_config(64));
+	MappingThread<FakeView> mapping(sensors, mapper, maps, mapping_config(64));
 	mapping.start();
 	/// poses and images at different rates and times
 	publish_flight(sensors, 1.0, 15.0);
@@ -117,7 +117,7 @@ TEST(Pipeline, NothingIsIntegratedWithoutPoses) {
 	SensorTopics sensors;
 	Topic<FakeView::Update> maps;
 	CollectingMapper mapper;
-	MappingStage<FakeView> mapping(sensors, mapper, maps);
+	MappingThread<FakeView> mapping(sensors, mapper, maps);
 	mapping.start();
 	sensors.depth_calibration.publish(CameraCalibration{});
 	sensors.base_to_depth.publish(StampedPose{});
@@ -140,7 +140,7 @@ TEST(Pipeline, SlowMapperDropsOldestInsteadOfFallingBehind) {
 	SensorTopics sensors;
 	Topic<FakeView::Update> maps;
 	SlowMapper mapper;
-	MappingStage<FakeView> mapping(sensors, mapper, maps, mapping_config(2));
+	MappingThread<FakeView> mapping(sensors, mapper, maps, mapping_config(2));
 	mapping.start();
 	/// 30 images at once
 	publish_flight(sensors, 2.0, 15.0);
@@ -159,7 +159,7 @@ TEST(Pipeline, UpdatesAreThrottledBySimTimeAndFlushedWhenIdle) {
 	Topic<FakeView::Update> maps;
 	auto updates = maps.subscribe_queue(1000);
 	CollectingMapper mapper;
-	MappingStage<FakeView> mapping(sensors, mapper, maps, mapping_config(100, 0.2));
+	MappingThread<FakeView> mapping(sensors, mapper, maps, mapping_config(100, 0.2));
 	mapping.start();
 	/// 50 images over 0.5 s of sim time
 	publish_flight(sensors, 0.5, 100.0);
@@ -192,7 +192,7 @@ TEST(Pipeline, KeyframesAreRepeatedWhileTheMapIsIdle) {
 	Topic<FakeView::Update> maps;
 	auto updates = maps.subscribe_queue(1000);
 	CollectingMapper mapper;
-	MappingStage<FakeView> mapping(sensors, mapper, maps, mapping_config(100, 0.2, 50ms));
+	MappingThread<FakeView> mapping(sensors, mapper, maps, mapping_config(100, 0.2, 50ms));
 	mapping.start();
 	/// 10 images, then nothing
 	publish_flight(sensors, 0.1, 100.0);
@@ -219,7 +219,7 @@ TEST(Pipeline, NothingIsPublishedWhileTheMapIsEmpty) {
 	Topic<FakeView::Update> maps;
 	auto updates = maps.subscribe_queue(10);
 	CollectingMapper mapper;
-	MappingStage<FakeView> mapping(sensors, mapper, maps, mapping_config(2, 0.2, 10ms));
+	MappingThread<FakeView> mapping(sensors, mapper, maps, mapping_config(2, 0.2, 10ms));
 	mapping.start();
 	/// many keyframe periods, but no map yet
 	std::this_thread::sleep_for(300ms);

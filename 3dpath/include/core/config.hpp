@@ -7,8 +7,8 @@
 #include <cstdint>
 #include <string>
 
-/// Every tunable setting of the pipeline, in one nested structure. Each stage takes its own part
-/// (e.g. MappingStage takes `config.mapping`), and apps/main.cpp fills the whole tree in one place.
+/// Every tunable setting of the pipeline, in one nested structure. Each thread takes its own part
+/// (e.g. MappingThread takes `config.mapping`), and apps/main.cpp fills the whole tree in one place.
 /// Plain aggregates of std types only, so this header is free of ROS and of every other component.
 ///
 /// Times: `TimeSec` fields are sim time (compared with message stamps); `std::chrono` fields are
@@ -43,7 +43,7 @@ struct SyncConfig {
 };
 
 /**
- * @brief Map building and update publishing (MappingStage, stages.hpp).
+ * @brief Map building and update publishing (MappingThread, threads.hpp).
  */
 struct MappingConfig {
 	SyncConfig sync;
@@ -60,15 +60,15 @@ struct MappingConfig {
  * @brief Log-odds occupancy grid mapper (LogOddsMapper, log_odds_mapper.hpp).
  */
 struct LogOddsMapperConfig {
-	double resolution = 0.25;     ///< voxel edge, m
-	float hit_log_odds = 0.85f;   ///< added to the voxel a depth return lands in
-	float miss_log_odds = -0.4f;  ///< added to the voxels a ray passes through
-	float min_log_odds = -2.0f;   ///< clamp: how sure a voxel can be of being free
-	float max_log_odds = 3.5f;    ///< clamp: how sure it can be of being occupied
-	double min_range = 0.3;       ///< returns closer than this (m) are ignored
-	double max_range = 15.0;      ///< rays are cut here (m); farther returns only carve free space
+	double resolution = 0.25;      ///< voxel edge, m
+	float hit_log_odds = 0.85f;    ///< added to the voxel a depth return lands in
+	float miss_log_odds = -0.4f;   ///< added to the voxels a ray passes through
+	float min_log_odds = -2.0f;    ///< clamp: how sure a voxel can be of being free
+	float max_log_odds = 3.5f;     ///< clamp: how sure it can be of being occupied
+	double min_range = 0.3;        ///< returns closer than this (m) are ignored
+	double max_range = 15.0;       ///< rays are cut here (m); farther returns only carve free space
 	double no_return_range = 6.0;  ///< rays without a return (sky, beyond the sensor) clear free space only this far (m); the cost grows with ray length
-	int pixel_stride = 4;         ///< cast a ray for every n-th pixel in both directions
+	int pixel_stride = 4;          ///< cast a ray for every n-th pixel in both directions
 };
 
 /**
@@ -94,7 +94,7 @@ struct MapClientConfig {
 };
 
 /**
- * @brief Global planning (GlobalPlanningStage, stages.hpp).
+ * @brief Global planning (GlobalPlanningThread, threads.hpp).
  */
 struct GlobalPlanningConfig {
 	MapClientConfig map_client;
@@ -103,7 +103,7 @@ struct GlobalPlanningConfig {
 };
 
 /**
- * @brief Local planning (LocalPlanningStage, stages.hpp).
+ * @brief Local planning (LocalPlanningThread, threads.hpp).
  */
 struct LocalPlanningConfig {
 	MapClientConfig map_client;
@@ -115,7 +115,7 @@ struct LocalPlanningConfig {
 };
 
 /**
- * @brief Streaming of trajectories to the vehicle (CommanderStage, stages.hpp).
+ * @brief Streaming of trajectories to the vehicle (CommanderThread, threads.hpp).
  */
 struct CommanderConfig {
 	/// setpoints sent per second (wall time)

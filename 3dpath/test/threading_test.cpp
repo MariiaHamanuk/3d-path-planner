@@ -9,7 +9,7 @@
 using namespace std::chrono_literals;
 using path3d::BoundedQueue;
 using path3d::Rate;
-using path3d::Stage;
+using path3d::Thread;
 using path3d::Topic;
 
 namespace {
@@ -19,10 +19,10 @@ struct Tick {
 }
 
 namespace {
-class CountingStage : public Stage {
+class CountingThread : public Thread {
 public:
-	explicit CountingStage(Topic<Tick>& topic) : m_queue(topic.subscribe_queue(4)) {}
-	~CountingStage() override { stop(); }
+	explicit CountingThread(Topic<Tick>& topic) : m_queue(topic.subscribe_queue(4)) {}
+	~CountingThread() override { stop(); }
 	int count() const { return m_count; }
 
 private:
@@ -37,35 +37,35 @@ private:
 };
 }
 
-TEST(Stage, StopsPromptlyEvenWhileBlockedOnAQueue) {
+TEST(Thread, StopsPromptlyEvenWhileBlockedOnAQueue) {
 	Topic<Tick> topic;
-	CountingStage stage(topic);
-	stage.start();
+	CountingThread thread(topic);
+	thread.start();
 	topic.publish(Tick{1.0});
 	std::this_thread::sleep_for(50ms);
 	const auto begin = std::chrono::steady_clock::now();
-	stage.stop();
+	thread.stop();
 	/// not the 1 s pop timeout
 	EXPECT_LT(std::chrono::steady_clock::now() - begin, 500ms);
-	EXPECT_EQ(stage.count(), 1);
-	stage.stop();
+	EXPECT_EQ(thread.count(), 1);
+	thread.stop();
 }
 
-TEST(Stage, ExceptionInRunIsReportedInsteadOfTerminating) {
-	class ThrowingStage : public Stage {
+TEST(Thread, ExceptionInRunIsReportedInsteadOfTerminating) {
+	class ThrowingThread : public Thread {
 	public:
-		~ThrowingStage() override { stop(); }
+		~ThrowingThread() override { stop(); }
 
 	private:
 		void run() override { throw std::runtime_error("mapper exploded"); }
 	};
-	ThrowingStage stage;
-	EXPECT_FALSE(stage.failed());
-	stage.start();
+	ThrowingThread thread;
+	EXPECT_FALSE(thread.failed());
+	thread.start();
 	/// joins the finished thread
-	stage.stop();
-	EXPECT_TRUE(stage.failed());
-	EXPECT_EQ(stage.error(), "mapper exploded");
+	thread.stop();
+	EXPECT_TRUE(thread.failed());
+	EXPECT_EQ(thread.error(), "mapper exploded");
 }
 
 TEST(Rate, KeepsAbsolutePeriod) {

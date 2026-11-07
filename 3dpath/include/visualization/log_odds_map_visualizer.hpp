@@ -27,7 +27,7 @@ namespace path3d {
  * ROS (this class would otherwise do it and shut it down too early). Create it before the
  * mapper starts publishing, or it waits for the next keyframe.
  */
-class LogOddsMapVisualizer : public Stage {
+class LogOddsMapVisualizer : public Thread {
 public:
 	/**
 	 * @param updates Topic the mapper publishes its updates on.
