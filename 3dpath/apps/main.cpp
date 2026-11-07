@@ -1,61 +1,47 @@
-// Entry point of the planner: wires the pipeline stages together.
-//
-//   SimReader ─ReaderStage─► Topic<SensorFrame> ─MapperStage─► Mapper
-//
-// Usage: ros2 run path3d path3d_main [world]      (world = default | city)
-//
-// Only this file knows the concrete implementations (SimReader, StatsMapper); the stages see
-// the Reader and Mapper interfaces. Swapping the simulation for a real drone or the placeholder
-// mapper for a real map builder means changing the two marked lines.
-#include "sim_reader.hpp"
-#include "stages.hpp"
+/** @file main.cpp
+ * @brief Entry point of the planner: wires the stages that exist so far.
+ * SimReader ─► SensorTopics (pose, depth, color, calibration, mounts) ─► status line
+ * Usage: ros2 run path3d path3d_main [world]      (world = default | city)
+ * The mapper and the planner are not implemented yet, so only the reader is wired. When a
+ * Mapper<M>, a GlobalPlanner<M> and a LocalPlanner<M> exist, add MappingStage (on `sensors`),
+ * GlobalPlanningStage and LocalPlanningStage here, each with its part of `config` (planners get a
+ * MapClient on the map update topic and a UavClient on `sensors.pose`). Create every subscriber
+ * before the reader. To fly, add a MavsdkVehicle (config.mavsdk) and a CommanderStage that
+ * follows the LocalPlanningStage's trajectories; apps/vehicle_demo.cpp shows the vehicle side.
+ */
+#include "io/sim_reader.hpp"
+#include "pipeline/stages.hpp"
 
 #include <atomic>
+#include <chrono>
 #include <csignal>
 #include <iostream>
+#include <thread>
 
 namespace {
 
 std::atomic<bool> g_interrupted{false};
 void on_signal(int) { g_interrupted = true; }
 
-// Placeholder Mapper: records what it receives. Replace with a real map builder.
-class StatsMapper : public path3d::Mapper {
- public:
-  void integrate(const path3d::SensorFrame& frame) override {
-    m_last_stamp = frame.stamp;
-    ++m_version;
-  }
-  std::uint64_t version() const override { return m_version; }
-  double last_stamp() const { return m_last_stamp; }
-
- private:
-  std::atomic<std::uint64_t> m_version{0};
-  std::atomic<double> m_last_stamp{0.0};
-};
-
-}  // namespace
+}
 
 int main(int argc, char** argv) {
-  path3d::SimReaderConfig config;
-  if (argc > 1) config.world_frame = argv[1];
+  path3d::PipelineConfig config;
+  if (argc > 1) config.sim_reader.world_frame = argv[1];
 
-  // Declared in dependency order: destroyed in reverse, so producers stop before consumers.
-  path3d::SimReader reader(config);                      // <- the Reader implementation
-  std::signal(SIGINT, on_signal);  // after the reader: rclcpp::init installs its own handler
-  path3d::Topic<path3d::SensorFrame> frames;
-  StatsMapper mapper;                                    // <- the Mapper implementation
-  path3d::MapperStage mapper_stage(frames, mapper);      // subscribes: create before the reader stage
-  path3d::ReaderStage reader_stage(reader, frames);
-
-  mapper_stage.start();
-  reader_stage.start();
+  /// Declared in dependency order: destroyed in reverse, so the reader stops first.
+  path3d::SensorTopics sensors;
+  const auto latest_pose = sensors.pose.subscribe_latest();
+  const auto latest_depth = sensors.depth.subscribe_latest();
+  path3d::SimReader reader(config.sim_reader, sensors);
+  /// after the reader: rclcpp::init installs its own
+  std::signal(SIGINT, on_signal);
 
   while (!g_interrupted) {
     std::this_thread::sleep_for(std::chrono::seconds(1));
-    std::cout << "frames: read " << reader_stage.published() << ", mapped "
-              << mapper_stage.integrated() << ", dropped " << mapper_stage.dropped()
-              << ", map version " << mapper.version() << ", last stamp " << mapper.last_stamp()
-              << "\n";
+    const auto pose = latest_pose->latest();
+    const auto depth = latest_depth->latest();
+    std::cout << "pose stamp " << (pose ? pose->stamp : 0.0) << ", depth stamp "
+              << (depth ? depth->stamp : 0.0) << "\n";
   }
 }

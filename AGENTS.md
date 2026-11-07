@@ -17,8 +17,9 @@ Enumerators are `CamelCase` (`CameraId::Color`). Constants and macros are not co
 
 ## Project rules
 
-- ROS types are confined to the I/O layer (`sim_reader.hpp/.cpp`). Every other header exposes only
-  project types (Eigen, OpenCV, std) - see `3dpath/include/types.hpp` - and the rest of the system
-  talks to the I/O layer through interfaces such as `Reader`.
+- ROS types are confined to the I/O layer (`io/sim_reader.hpp/.cpp`), and MAVSDK types to
+  `io/mavsdk_vehicle.hpp/.cpp`. Every other header exposes only
+  project types (Eigen, OpenCV, std) - see `3dpath/include/core/types.hpp` - and the rest of the system
+  talks to the I/O layer through interfaces such as `Reader` and `Vehicle`.
 - The code is C++20. Constrain templates with concepts instead of relying on
-  implicit requirements (see `Stamped` in `communication.hpp`: every message type must have a `stamp`).
+  implicit requirements (see `Stamped` in `core/communication.hpp`: every message type must have a `stamp`).
