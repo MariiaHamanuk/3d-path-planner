@@ -1,8 +1,10 @@
-#include "threading.hpp"
+#include "core/threading.hpp"
 
-#include "communication.hpp"
+#include "core/communication.hpp"
 
 #include <gtest/gtest.h>
+
+#include <stdexcept>
 
 using namespace std::chrono_literals;
 using path3d::BoundedQueue;
@@ -14,7 +16,7 @@ namespace {
 struct Tick {
   double stamp;
 };
-}  // namespace
+}
 
 namespace {
 class CountingStage : public Stage {
@@ -33,7 +35,7 @@ class CountingStage : public Stage {
   std::shared_ptr<BoundedQueue<Tick>> m_queue;
   std::atomic<int> m_count{0};
 };
-}  // namespace
+}
 
 TEST(Stage, StopsPromptlyEvenWhileBlockedOnAQueue) {
   Topic<Tick> topic;
@@ -43,16 +45,35 @@ TEST(Stage, StopsPromptlyEvenWhileBlockedOnAQueue) {
   std::this_thread::sleep_for(50ms);
   const auto begin = std::chrono::steady_clock::now();
   stage.stop();
-  EXPECT_LT(std::chrono::steady_clock::now() - begin, 500ms);  // not the 1 s pop timeout
+  /// not the 1 s pop timeout
+  EXPECT_LT(std::chrono::steady_clock::now() - begin, 500ms);
   EXPECT_EQ(stage.count(), 1);
-  stage.stop();  // idempotent
+  stage.stop();
+}
+
+TEST(Stage, ExceptionInRunIsReportedInsteadOfTerminating) {
+  class ThrowingStage : public Stage {
+   public:
+    ~ThrowingStage() override { stop(); }
+
+   private:
+    void run() override { throw std::runtime_error("mapper exploded"); }
+  };
+  ThrowingStage stage;
+  EXPECT_FALSE(stage.failed());
+  stage.start();
+  /// joins the finished thread
+  stage.stop();
+  EXPECT_TRUE(stage.failed());
+  EXPECT_EQ(stage.error(), "mapper exploded");
 }
 
 TEST(Rate, KeepsAbsolutePeriod) {
-  Rate rate(100.0);  // 10 ms
+  Rate rate(100.0);
   const auto begin = std::chrono::steady_clock::now();
   for (int i = 0; i < 10; ++i) {
-    std::this_thread::sleep_for(3ms);  // work shorter than the period must not stretch it
+    /// work shorter than the period must not stretch it
+    std::this_thread::sleep_for(3ms);
     rate.sleep();
   }
   const auto elapsed = std::chrono::steady_clock::now() - begin;

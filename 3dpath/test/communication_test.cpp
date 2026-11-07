@@ -1,4 +1,4 @@
-#include "communication.hpp"
+#include "core/communication.hpp"
 
 #include <gtest/gtest.h>
 
@@ -26,7 +26,7 @@ struct WrongStampType {
 
 Sample sample(int id) { return Sample{static_cast<double>(id), id}; }
 path3d::Msg<Sample> msg(int id) { return std::make_shared<const Sample>(sample(id)); }
-}  // namespace
+}
 
 static_assert(path3d::Stamped<Sample>);
 static_assert(!path3d::Stamped<NoStamp>);
@@ -44,11 +44,11 @@ TEST(LatestSlot, EmptyThenNewestWins) {
 TEST(BoundedQueue, DropsOldestWhenFull) {
   BoundedQueue<Sample> queue(2);
   for (int i = 1; i <= 4; ++i) queue.push(msg(i));
-  EXPECT_EQ(queue.dropped(), 2u);
+  EXPECT_EQ(queue.dropped_count(), 2u);
   EXPECT_EQ(queue.size(), 2u);
   EXPECT_EQ(queue.pop(10ms)->id, 3);
   EXPECT_EQ(queue.pop(10ms)->id, 4);
-  EXPECT_EQ(queue.pop(10ms), nullptr);  // timeout
+  EXPECT_EQ(queue.pop(10ms), nullptr);
 }
 
 TEST(BoundedQueue, ZeroCapacityIsClampedToOne) {
@@ -79,7 +79,8 @@ TEST(Topic, FansOutOneMessageToAllSubscribers) {
   ASSERT_NE(slot->latest(), nullptr);
   auto from_queue = queue->pop(10ms);
   ASSERT_NE(from_queue, nullptr);
-  EXPECT_EQ(slot->latest(), from_queue);  // same shared object, not a copy
+  /// same shared object, not a copy
+  EXPECT_EQ(slot->latest(), from_queue);
   EXPECT_EQ(from_queue->id, 7);
 }
 
@@ -109,23 +110,24 @@ TEST(Topic, ConcurrentPublishAndConsume) {
   producer.join();
   consumer.join();
   EXPECT_EQ(slot->latest()->id, 1999);
-  EXPECT_EQ(static_cast<std::size_t>(received) + queue->dropped(), 2000u);
+  EXPECT_EQ(static_cast<std::size_t>(received) + queue->dropped_count(), 2000u);
 }
 
 
 TEST(HistoryBuffer, ClosestPicksNearestAndEarlierOnTie) {
   Topic<Sample> topic;
   auto history = topic.subscribe_history(10);
-  EXPECT_EQ(history->closest(1.0), nullptr);  // empty
+  EXPECT_EQ(history->closest(1.0), nullptr);
   topic.publish(Sample{1.0, 1});
   topic.publish(Sample{2.0, 2});
   topic.publish(Sample{4.0, 4});
-  EXPECT_EQ(history->closest(0.0)->id, 1);   // before everything
+  EXPECT_EQ(history->closest(0.0)->id, 1);
   EXPECT_EQ(history->closest(1.4)->id, 1);
   EXPECT_EQ(history->closest(1.6)->id, 2);
-  EXPECT_EQ(history->closest(1.5)->id, 1);   // tie -> earlier
+  /// tie -> earlier
+  EXPECT_EQ(history->closest(1.5)->id, 1);
   EXPECT_EQ(history->closest(3.2)->id, 4);
-  EXPECT_EQ(history->closest(99.0)->id, 4);  // after everything
+  EXPECT_EQ(history->closest(99.0)->id, 4);
 }
 
 TEST(HistoryBuffer, ClosestHonoursTolerance) {
@@ -150,7 +152,8 @@ TEST(HistoryBuffer, BracketGivesNeighboursForInterpolation) {
   EXPECT_EQ(exact.first->id, 2);
   EXPECT_EQ(exact.second->id, 2);
 
-  EXPECT_EQ(history->bracket(0.5).first, nullptr);  // outside the history
+  /// outside the history
+  EXPECT_EQ(history->bracket(0.5).first, nullptr);
   EXPECT_EQ(history->bracket(0.5).second->id, 1);
   EXPECT_EQ(history->bracket(3.0).second, nullptr);
   EXPECT_EQ(history->bracket(3.0).first->id, 2);
@@ -160,11 +163,13 @@ TEST(HistoryBuffer, EvictsOldestAndSortsOutOfOrderInserts) {
   Topic<Sample> topic;
   auto history = topic.subscribe_history(3);
   topic.publish(Sample{3.0, 3});
-  topic.publish(Sample{1.0, 1});  // late arrival is placed by stamp
+  /// late arrival is placed by stamp
+  topic.publish(Sample{1.0, 1});
   topic.publish(Sample{2.0, 2});
   EXPECT_EQ(*history->oldest_stamp(), 1.0);
   EXPECT_EQ(*history->newest_stamp(), 3.0);
-  topic.publish(Sample{4.0, 4});  // evicts stamp 1.0
+  /// evicts stamp 1.0
+  topic.publish(Sample{4.0, 4});
   EXPECT_EQ(history->size(), 3u);
   EXPECT_EQ(*history->oldest_stamp(), 2.0);
   EXPECT_EQ(history->closest(1.0)->id, 2);
@@ -175,7 +180,7 @@ TEST(HistoryBuffer, WaitUntilNewestBlocksUntilData) {
   auto history = topic.subscribe_history(4);
   topic.publish(Sample{1.0, 1});
   EXPECT_TRUE(history->wait_until_newest(1.0, 10ms));
-  EXPECT_FALSE(history->wait_until_newest(2.0, 20ms));  // timeout
+  EXPECT_FALSE(history->wait_until_newest(2.0, 20ms));
 
   std::thread producer([&] {
     std::this_thread::sleep_for(50ms);
@@ -212,4 +217,17 @@ TEST(HistoryBuffer, ConcurrentPushAndQuery) {
   producer.join();
   reader.join();
   EXPECT_EQ(history->size(), 64u);
+}
+
+TEST(Pipe, EachDirectionIsAnIndependentTopic) {
+  path3d::Pipe<Sample, Sample> pipe;
+  auto down = pipe.down().subscribe_queue(4);
+  auto up = pipe.up().subscribe_queue(4);
+  pipe.down().publish(sample(1));
+  EXPECT_EQ(down->pop(10ms)->id, 1);
+  /// nothing went upwards
+  EXPECT_EQ(up->pop(10ms), nullptr);
+  pipe.up().publish(sample(2));
+  EXPECT_EQ(up->pop(10ms)->id, 2);
+  EXPECT_EQ(down->pop(10ms), nullptr);
 }
