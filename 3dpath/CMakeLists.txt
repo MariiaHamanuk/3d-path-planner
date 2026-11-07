@@ -46,11 +46,13 @@ target_link_libraries(path3d PUBLIC Threads::Threads)
 
 add_executable(path3d_main apps/main.cpp)
 target_link_libraries(path3d_main path3d)
+add_executable(line_planner_demo apps/line_planner_demo.cpp)
+target_link_libraries(line_planner_demo path3d)
 
 install(DIRECTORY include/ DESTINATION include)
 install(TARGETS path3d EXPORT export_path3d
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
-install(TARGETS path3d_main DESTINATION lib/${PROJECT_NAME})
+install(TARGETS path3d_main line_planner_demo DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
@@ -70,6 +72,8 @@ if(BUILD_TESTING)
   target_link_libraries(log_odds_map_test path3d)
   ament_add_gtest(log_odds_map_visualizer_test test/log_odds_map_visualizer_test.cpp)
   target_link_libraries(log_odds_map_visualizer_test path3d)
+  ament_add_gtest(line_planner_test test/line_planner_test.cpp)
+  target_link_libraries(line_planner_test path3d)
   ament_add_gtest(pipeline_test test/pipeline_test.cpp)
   target_link_libraries(pipeline_test path3d)
   ament_add_gtest(global_planner_test test/global_planner_test.cpp)
