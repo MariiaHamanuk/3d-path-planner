@@ -7,8 +7,7 @@
  * LocalPlanner<LogOddsGridMap> exist, add GlobalPlanningStage and LocalPlanningStage here, each
  * with its part of `config` (planners get a MapClient on `map_updates` and a UavClient on
  * `sensors.pose`). Create every subscriber before the reader. To fly, add a MavsdkVehicle
- * (config.mavsdk) and a CommanderStage that follows the LocalPlanningStage's trajectories;
- * apps/vehicle_demo.cpp shows the vehicle side.
+ * (config.mavsdk) and a CommanderStage that follows the LocalPlanningStage's trajectories.
  */
 #include "io/sim_reader.hpp"
 #include "mapping/log_odds_mapper.hpp"
@@ -33,8 +32,9 @@ int main(int argc, char** argv) {
 	path3d::PipelineConfig config;
 	if (argc > 1) config.sim_reader.world_frame = argv[1];
 	/// The drone flies ~10 m/s: a diff every 0.2 s of sim time or a refresh every 0.5 s would leave the map 2-5 m behind it.
-	config.mapping.publish_period = 0.05;
-	config.map_visualizer.rate_hz = 10.0;
+	config.mapping.publish_period = 0.1;
+	config.map_visualizer.rate_hz = 5.0;
+	config.log_odds_mapper.resolution = 0.5;
 	
 	config.log_odds_mapper.max_range = 30.0f;
 

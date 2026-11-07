@@ -44,17 +44,13 @@ target_link_libraries(path3d PUBLIC MAVSDK::mavsdk)
 find_package(Threads REQUIRED)
 target_link_libraries(path3d PUBLIC Threads::Threads)
 
-add_executable(sim_reader_demo apps/sim_reader_demo.cpp)
-target_link_libraries(sim_reader_demo path3d)
 add_executable(path3d_main apps/main.cpp)
 target_link_libraries(path3d_main path3d)
-add_executable(vehicle_demo apps/vehicle_demo.cpp)
-target_link_libraries(vehicle_demo path3d)
 
 install(DIRECTORY include/ DESTINATION include)
 install(TARGETS path3d EXPORT export_path3d
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
-install(TARGETS sim_reader_demo path3d_main vehicle_demo DESTINATION lib/${PROJECT_NAME})
+install(TARGETS path3d_main DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)

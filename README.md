@@ -86,8 +86,7 @@ and publishes it straight away. No ROS types appear outside `io/sim_reader.hpp`/
 ```bash
 # inside the container, with the sim running
 colcon build --base-paths 3dpath && source install/setup.bash
-ros2 run path3d sim_reader_demo default     # arg = world name (default | city)
-ros2 run path3d path3d_main default         # the pipeline so far: Reader (prints stamps)
+ros2 run path3d path3d_main default         # arg = world name (default | city); the pipeline so far
 colcon test --base-paths 3dpath             # unit tests
 ```
 
@@ -150,11 +149,6 @@ MAVSDK is installed in the docker image (see `docker/Dockerfile`); rebuild the i
 The local planner returns a short `Trajectory` with each `plan()`. `CommanderStage` samples the newest
 trajectory at 50 Hz and sends it to the vehicle. It sends nothing unless the vehicle is armed and in
 `External` mode, and it holds position when the trajectory or the pose goes stale.
-
-```bash
-# inside the container, with the sim running (./scripts/start.sh)
-ros2 run path3d vehicle_demo default   # arm, take off to 5 m, fly a 10 m square, land
-```
 
 ---
 
