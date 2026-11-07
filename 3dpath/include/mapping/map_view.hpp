@@ -13,7 +13,9 @@ namespace path3d {
 /**
  * @brief Answer of an occupancy query.
  */
-enum class Occupancy : std::uint8_t { Free, Occupied, Unknown };
+enum class Occupancy : std::uint8_t { Free,
+                                      Occupied,
+                                      Unknown };
 
 /**
  * @brief Base of every map type: a map as of one moment, tagged with the time, version and frame it
@@ -22,13 +24,13 @@ enum class Occupancy : std::uint8_t { Free, Occupied, Unknown };
  * queries; the concepts below say which queries an algorithm needs.
  */
 class MapView {
- public:
-  TimeSec stamp = 0.0;  ///< time of the newest observation in the snapshot
-  std::uint64_t version = 0;  ///< mapper version the snapshot was taken at
-  FrameId frame = FrameId::World;  ///< coordinate frame of all positions
+public:
+	TimeSec stamp = 0.0;             ///< time of the newest observation in the snapshot
+	std::uint64_t version = 0;       ///< mapper version the snapshot was taken at
+	FrameId frame = FrameId::World;  ///< coordinate frame of all positions
 
- protected:
-  MapView() = default;
+protected:
+	MapView() = default;
 };
 
 /// A map type: anything derived from MapView.
@@ -43,9 +45,9 @@ concept MapViewType = std::derived_from<V, MapView>;
 ///   to_version    version of the map after applying the update
 template <class U>
 concept MapUpdate = Stamped<U> && requires(const U& update) {
-  { update.from_version } -> std::convertible_to<std::uint64_t>;
-  { update.to_version } -> std::convertible_to<std::uint64_t>;
-  { update.keyframe } -> std::convertible_to<bool>;
+	{ update.from_version } -> std::convertible_to<std::uint64_t>;
+	{ update.to_version } -> std::convertible_to<std::uint64_t>;
+	{ update.keyframe } -> std::convertible_to<bool>;
 };
 
 /// A map that can be copied through updates: the mapper keeps the working map and publishes
@@ -59,37 +61,37 @@ concept MapUpdate = Stamped<U> && requires(const U& update) {
 /// reader needs no locks.
 template <class M>
 concept ReplicatedMap = MapViewType<M> && std::default_initializable<M> &&
-    requires(M& map, const typename M::Update& update) {
-  requires MapUpdate<typename M::Update>;
-  { map.apply(update) } -> std::same_as<void>;
-};
+                        requires(M& map, const typename M::Update& update) {
+	                        requires MapUpdate<typename M::Update>;
+	                        { map.apply(update) } -> std::same_as<void>;
+                        };
 
 /// A map that answers occupancy queries at a world position.
 template <class V>
 concept OccupancyMap = MapViewType<V> && requires(const V& map, const Eigen::Vector3d& p) {
-  { map.occupancy(p) } -> std::same_as<Occupancy>;
+	{ map.occupancy(p) } -> std::same_as<Occupancy>;
 };
 
 /// Regular voxel grid with integer indices: enables A*, Theta*, JPS, ...
 template <class V>
 concept GridMap = OccupancyMap<V> &&
-    requires(const V& map, const Eigen::Vector3d& p, const Eigen::Vector3i& i) {
-  { map.resolution() } -> std::convertible_to<double>;
-  { map.index_of(p) } -> std::same_as<Eigen::Vector3i>;
-  { map.center_of(i) } -> std::same_as<Eigen::Vector3d>;
-  { map.occupancy_at(i) } -> std::same_as<Occupancy>;
-};
+                  requires(const V& map, const Eigen::Vector3d& p, const Eigen::Vector3i& i) {
+	                  { map.resolution() } -> std::convertible_to<double>;
+	                  { map.index_of(p) } -> std::same_as<Eigen::Vector3i>;
+	                  { map.center_of(i) } -> std::same_as<Eigen::Vector3d>;
+	                  { map.occupancy_at(i) } -> std::same_as<Occupancy>;
+                  };
 
 /// Distance to the nearest obstacle (ESDF-like).
 template <class V>
 concept DistanceMap = OccupancyMap<V> && requires(const V& map, const Eigen::Vector3d& p) {
-  { map.distance(p) } -> std::convertible_to<double>;
+	{ map.distance(p) } -> std::convertible_to<double>;
 };
 
 /// Distance plus its gradient: enables gradient-based trajectory optimization.
 template <class V>
 concept GradientMap = DistanceMap<V> && requires(const V& map, const Eigen::Vector3d& p) {
-  { map.gradient(p) } -> std::convertible_to<Eigen::Vector3d>;
+	{ map.gradient(p) } -> std::convertible_to<Eigen::Vector3d>;
 };
 
 }

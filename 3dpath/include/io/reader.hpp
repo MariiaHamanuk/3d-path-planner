@@ -11,13 +11,13 @@ namespace path3d {
  * themselves (see FrameSynchronizer in sync.hpp). Only project types travel here (no ROS).
  */
 struct SensorTopics {
-  Topic<StampedPose> pose;  ///< drone base link in the world frame, at the pose rate
-  Topic<ImageFrame> color;
-  Topic<ImageFrame> depth;
-  Topic<CameraCalibration> color_calibration;  ///< republished regularly (with every camera_info)
-  Topic<CameraCalibration> depth_calibration;
-  Topic<StampedPose> base_to_color;  ///< T_base_camera, republished with the calibration
-  Topic<StampedPose> base_to_depth;
+	Topic<StampedPose> pose;  ///< drone base link in the world frame, at the pose rate
+	Topic<ImageFrame> color;
+	Topic<ImageFrame> depth;
+	Topic<CameraCalibration> color_calibration;  ///< republished regularly (with every camera_info)
+	Topic<CameraCalibration> depth_calibration;
+	Topic<StampedPose> base_to_color;  ///< T_base_camera, republished with the calibration
+	Topic<StampedPose> base_to_depth;
 };
 
 /**
@@ -29,19 +29,19 @@ struct SensorTopics {
  * subscribers.
  */
 class Reader {
- public:
-  virtual ~Reader() = default;
-  Reader(const Reader&) = delete;
-  Reader& operator=(const Reader&) = delete;
+public:
+	virtual ~Reader() = default;
+	Reader(const Reader&) = delete;
+	Reader& operator=(const Reader&) = delete;
 
- protected:
-  /**
-   * @param out Topics the reader publishes into.
-   */
-  explicit Reader(SensorTopics& out) : m_out(out) {}
+protected:
+	/**
+	 * @param out Topics the reader publishes into.
+	 */
+	explicit Reader(SensorTopics& out) : m_out(out) {}
 
-  /// Topics the reader publishes into.
-  SensorTopics& m_out;
+	/// Topics the reader publishes into.
+	SensorTopics& m_out;
 };
 
 }

@@ -18,35 +18,35 @@ namespace path3d {
  * down.
  */
 class Stage {
- public:
-  Stage() = default;
-  virtual ~Stage();
-  Stage(const Stage&) = delete;
-  Stage& operator=(const Stage&) = delete;
+public:
+	Stage() = default;
+	virtual ~Stage();
+	Stage(const Stage&) = delete;
+	Stage& operator=(const Stage&) = delete;
 
-  void start();  ///< no-op if already running
-  void stop();  ///< signals, calls on_stop(), joins; safe to call repeatedly
+	void start();  ///< no-op if already running
+	void stop();   ///< signals, calls on_stop(), joins; safe to call repeatedly
 
-  /// True if run() ended with an exception.
-  bool failed() const { return m_failed; }
-  std::string error() const;
+	/// True if run() ended with an exception.
+	bool failed() const { return m_failed; }
+	std::string error() const;
 
- protected:
-  virtual void run() = 0;  ///< loop while running()
-  /// Called by stop() before joining; wake blocking waits here (e.g. close a queue).
-  virtual void on_stop() {}
-  /// False once stop() was requested; run() loops while this is true.
-  bool running() const { return !m_stop_requested; }
+protected:
+	virtual void run() = 0;  ///< loop while running()
+	/// Called by stop() before joining; wake blocking waits here (e.g. close a queue).
+	virtual void on_stop() {}
+	/// False once stop() was requested; run() loops while this is true.
+	bool running() const { return !m_stop_requested; }
 
- private:
-  /// Records the failure message and logs it.
-  void fail(const std::string& message);
+private:
+	/// Records the failure message and logs it.
+	void fail(const std::string& message);
 
-  std::atomic<bool> m_stop_requested{false};
-  std::atomic<bool> m_failed{false};
-  mutable std::mutex m_error_mutex;
-  std::string m_error;
-  std::thread m_thread;
+	std::atomic<bool> m_stop_requested{false};
+	std::atomic<bool> m_failed{false};
+	mutable std::mutex m_error_mutex;
+	std::string m_error;
+	std::thread m_thread;
 };
 
 /**
@@ -57,18 +57,18 @@ class Stage {
  * paced by a Rate must take time steps from message stamps, never from the clock.
  */
 class Rate {
- public:
-  /**
-   * @param hz Loop frequency (a non-positive value means 1 Hz).
-   */
-  explicit Rate(double hz);
-  void sleep();
+public:
+	/**
+	 * @param hz Loop frequency (a non-positive value means 1 Hz).
+	 */
+	explicit Rate(double hz);
+	void sleep();
 
- private:
-  using Clock = std::chrono::steady_clock;
-  Clock::duration m_period;
-  /// Deadline of the next period.
-  Clock::time_point m_next;
+private:
+	using Clock = std::chrono::steady_clock;
+	Clock::duration m_period;
+	/// Deadline of the next period.
+	Clock::time_point m_next;
 };
 
 }

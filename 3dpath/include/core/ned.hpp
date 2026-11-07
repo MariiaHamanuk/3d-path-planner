@@ -29,31 +29,31 @@ inline double ned_to_enu_yaw(double yaw) { return wrap_angle(std::numbers::pi / 
  * `samples` pairs the average is fixed and ready() becomes true. Not thread-safe.
  */
 class NedOrigin {
- public:
-  /// @param samples Pairs to average before the origin is considered known (at least 1).
-  explicit NedOrigin(std::size_t samples = 50) : m_samples(samples > 0 ? samples : 1) {}
+public:
+	/// @param samples Pairs to average before the origin is considered known (at least 1).
+	explicit NedOrigin(std::size_t samples = 50) : m_samples(samples > 0 ? samples : 1) {}
 
-  /// Adds one pair: the same position as world ENU and as autopilot NED. Ignored once ready().
-  void add(const Eigen::Vector3d& world, const Eigen::Vector3d& ned) {
-    if (ready()) return;
-    m_sum += world - ned_to_enu(ned);
-    ++m_count;
-  }
+	/// Adds one pair: the same position as world ENU and as autopilot NED. Ignored once ready().
+	void add(const Eigen::Vector3d& world, const Eigen::Vector3d& ned) {
+		if (ready()) return;
+		m_sum += world - ned_to_enu(ned);
+		++m_count;
+	}
 
-  bool ready() const { return m_count >= m_samples; }
+	bool ready() const { return m_count >= m_samples; }
 
-  Eigen::Vector3d offset() const {
-    return m_count > 0 ? Eigen::Vector3d(m_sum / static_cast<double>(m_count)) : Eigen::Vector3d::Zero();
-  }
+	Eigen::Vector3d offset() const {
+		return m_count > 0 ? Eigen::Vector3d(m_sum / static_cast<double>(m_count)) : Eigen::Vector3d::Zero();
+	}
 
-  Eigen::Vector3d to_ned(const Eigen::Vector3d& world) const { return enu_to_ned(world - offset()); }
-  Eigen::Vector3d to_world(const Eigen::Vector3d& ned) const { return ned_to_enu(ned) + offset(); }
+	Eigen::Vector3d to_ned(const Eigen::Vector3d& world) const { return enu_to_ned(world - offset()); }
+	Eigen::Vector3d to_world(const Eigen::Vector3d& ned) const { return ned_to_enu(ned) + offset(); }
 
- private:
-  std::size_t m_samples;
-  std::size_t m_count = 0;
-  /// Sum of the origin estimates of all pairs added so far.
-  Eigen::Vector3d m_sum = Eigen::Vector3d::Zero();
+private:
+	std::size_t m_samples;
+	std::size_t m_count = 0;
+	/// Sum of the origin estimates of all pairs added so far.
+	Eigen::Vector3d m_sum = Eigen::Vector3d::Zero();
 };
 
 }

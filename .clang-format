@@ -1,0 +1,12 @@
+BasedOnStyle: Google
+Language: Cpp
+Standard: c++20
+IndentWidth: 4
+TabWidth: 4
+UseTab: ForIndentation
+ContinuationIndentWidth: 4
+AccessModifierOffset: -4
+# Long lines are allowed: nothing is wrapped or joined because of its length.
+ColumnLimit: 0
+SortIncludes: Never
+FixNamespaceComments: false

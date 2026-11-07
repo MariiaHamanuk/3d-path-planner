@@ -15,29 +15,29 @@ namespace path3d {
  */
 template <ReplicatedMap M, PlanRequest R, PlanAnswer P>
 class GlobalPlanner {
- public:
-  virtual ~GlobalPlanner() = default;
-  GlobalPlanner(const GlobalPlanner&) = delete;
-  GlobalPlanner& operator=(const GlobalPlanner&) = delete;
+public:
+	virtual ~GlobalPlanner() = default;
+	GlobalPlanner(const GlobalPlanner&) = delete;
+	GlobalPlanner& operator=(const GlobalPlanner&) = delete;
 
-  /// Brings the map copy up to date; call once before each plan(), on the planner's thread. True
-  /// once a plan can be made (the map copy holds a full map). The stage holds requests until then.
-  bool prepare() { return m_map.sync(); }
+	/// Brings the map copy up to date; call once before each plan(), on the planner's thread. True
+	/// once a plan can be made (the map copy holds a full map). The stage holds requests until then.
+	bool prepare() { return m_map.sync(); }
 
-  /// The answer to `request`. Always returns one: when no path exists, return a plan that says so
-  /// (for GlobalPath: status Failed), so the local planner is never left waiting. The stage fills
-  /// in `request_id` and publishes the result.
-  virtual P plan(const R& request) = 0;
+	/// The answer to `request`. Always returns one: when no path exists, return a plan that says so
+	/// (for GlobalPath: status Failed), so the local planner is never left waiting. The stage fills
+	/// in `request_id` and publishes the result.
+	virtual P plan(const R& request) = 0;
 
- protected:
-  /**
-   * @param map Access to this planner's copy of the map.
-   * @param uav Access to the drone pose.
-   */
-  GlobalPlanner(MapClient<M>& map, UavClient& uav) : m_map(map), m_uav(uav) {}
+protected:
+	/**
+	 * @param map Access to this planner's copy of the map.
+	 * @param uav Access to the drone pose.
+	 */
+	GlobalPlanner(MapClient<M>& map, UavClient& uav) : m_map(map), m_uav(uav) {}
 
-  MapClient<M>& m_map;
-  UavClient& m_uav;
+	MapClient<M>& m_map;
+	UavClient& m_uav;
 };
 
 }

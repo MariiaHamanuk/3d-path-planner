@@ -25,7 +25,10 @@ static_assert(ReplicatedMap<FakeView>);
 static_assert(!MapUpdate<int>);
 static_assert(!ReplicatedMap<int>);
 namespace {
-struct NoVersions { double stamp; bool keyframe; };
+struct NoVersions {
+	double stamp;
+	bool keyframe;
+};
 static_assert(!MapUpdate<NoVersions>);
 
 class NoUpdateType : public MapView {};  ///< a view without an Update type
@@ -35,9 +38,13 @@ static_assert(!ReplicatedMap<NoUpdateType>);
  * @brief apply() must return void
  */
 class WrongApply : public MapView {
- public:
-  struct Update { double stamp; std::uint64_t from_version, to_version; bool keyframe; };
-  bool apply(const Update&) { return true; }
+public:
+	struct Update {
+		double stamp;
+		std::uint64_t from_version, to_version;
+		bool keyframe;
+	};
+	bool apply(const Update&) { return true; }
 };
 static_assert(!ReplicatedMap<WrongApply>);
 
@@ -46,37 +53,37 @@ static_assert(!ReplicatedMap<WrongApply>);
  *   qualifies.
  */
 class CopyMap : public MapView {
- public:
-  struct Update {
-    TimeSec stamp = 0.0;
-    std::uint64_t from_version = 0;
-    std::uint64_t to_version = 0;
-    bool keyframe = true;
-    std::shared_ptr<const CopyMap> snapshot;
-  };
-  CopyMap() = default;
-  void apply(const Update& update) { *this = *update.snapshot; }
-  int payload = 0;
+public:
+	struct Update {
+		TimeSec stamp = 0.0;
+		std::uint64_t from_version = 0;
+		std::uint64_t to_version = 0;
+		bool keyframe = true;
+		std::shared_ptr<const CopyMap> snapshot;
+	};
+	CopyMap() = default;
+	void apply(const Update& update) { *this = *update.snapshot; }
+	int payload = 0;
 };
 static_assert(ReplicatedMap<CopyMap>);
 }
 
 TEST(MapView, BaseCarriesStampVersionAndFrame) {
-  FakeView view;
-  view.stamp = 2.5;
-  view.version = 7;
-  EXPECT_EQ(view.frame, FrameId::World);
-  EXPECT_DOUBLE_EQ(view.stamp, 2.5);
-  EXPECT_EQ(view.version, 7u);
+	FakeView view;
+	view.stamp = 2.5;
+	view.version = 7;
+	EXPECT_EQ(view.frame, FrameId::World);
+	EXPECT_DOUBLE_EQ(view.stamp, 2.5);
+	EXPECT_EQ(view.version, 7u);
 }
 
 TEST(MapView, CopyPolicyReplacesTheWholeMap) {
-  auto snapshot = std::make_shared<CopyMap>();
-  snapshot->payload = 42;
-  snapshot->stamp = 3.0;
-  snapshot->version = 9;
-  CopyMap copy;
-  copy.apply({.stamp = 3.0, .to_version = 9, .snapshot = snapshot});
-  EXPECT_EQ(copy.payload, 42);
-  EXPECT_EQ(copy.version, 9u);
+	auto snapshot = std::make_shared<CopyMap>();
+	snapshot->payload = 42;
+	snapshot->stamp = 3.0;
+	snapshot->version = 9;
+	CopyMap copy;
+	copy.apply({.stamp = 3.0, .to_version = 9, .snapshot = snapshot});
+	EXPECT_EQ(copy.payload, 42);
+	EXPECT_EQ(copy.version, 9u);
 }

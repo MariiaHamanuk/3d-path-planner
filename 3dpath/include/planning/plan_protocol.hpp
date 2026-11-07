@@ -15,15 +15,15 @@ namespace path3d {
 /// A stamped replanning request with a writable numeric `id`.
 template <class R>
 concept PlanRequest = Stamped<R> && requires(R& request) {
-  { request.id } -> std::convertible_to<std::uint64_t>;
-  request.id = std::uint64_t{};
+	{ request.id } -> std::convertible_to<std::uint64_t>;
+	request.id = std::uint64_t{};
 };
 
 /// A stamped plan with a writable `request_id` naming the request it answers.
 template <class P>
 concept PlanAnswer = Stamped<P> && requires(P& plan) {
-  { plan.request_id } -> std::convertible_to<std::uint64_t>;
-  plan.request_id = std::uint64_t{};
+	{ plan.request_id } -> std::convertible_to<std::uint64_t>;
+	plan.request_id = std::uint64_t{};
 };
 
 }
