@@ -1,8 +1,8 @@
 #!/bin/bash
-# Builds path3d and runs the line planner demo: the drone arms, takes off to 5 m, flies a
-# straight line, and lands at its end. Run it in the `planner` tmux window, after
-# ./scripts/start.sh has brought up the simulation (and let the drone stand still until the
-# autopilot is ready).
+# Builds path3d and runs the line planner demo: the drone flies a straight line from where it is.
+# The drone must already be flying in GUIDED mode: start the simulation (./scripts/start.sh), take
+# off (QGroundControl's Takeoff, or in the `ardupilot` window: `mode guided`, `arm throttle`,
+# `takeoff 5`), then run this in the `planner` tmux window.
 #
 # Usage: run_line_planner.sh [-n|--no-build] [yaw] [distance] [world]
 #   yaw       direction of the line in degrees, counter-clockwise from east (0 = east, 90 = north).
