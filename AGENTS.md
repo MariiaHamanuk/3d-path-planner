@@ -17,7 +17,7 @@ Enumerators are `CamelCase` (`CameraId::Color`). Constants and macros are not co
 
 ## Project rules
 
-- ROS types are confined to the I/O layer (`io/sim_reader.hpp/.cpp`), and MAVSDK types to
+- ROS types are confined to the I/O layer (`io/sim_reader.hpp/.cpp`) and the visualizers in `visualization/`, and MAVSDK types to
   `io/mavsdk_vehicle.hpp/.cpp`. Every other header exposes only
   project types (Eigen, OpenCV, std) - see `3dpath/include/core/types.hpp` - and the rest of the system
   talks to the I/O layer through interfaces such as `Reader` and `Vehicle`.

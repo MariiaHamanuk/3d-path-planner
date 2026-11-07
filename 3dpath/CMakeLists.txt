@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.16)
 project(path3d)
 
+if(NOT CMAKE_BUILD_TYPE)
+  # colcon passes no build type, which means no optimization: the mapper runs ~15x slower.
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -13,6 +18,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(OpenCV REQUIRED COMPONENTS core imgproc)
 
@@ -21,15 +27,17 @@ find_package(MAVSDK REQUIRED)
 
 # sim_reader.hpp is the ROS-facing I/O layer and exposes ROS types; everything else in the public
 # headers uses only Eigen + OpenCV + std types (consumers use SimReader through Reader).
-add_library(path3d src/core/threading.cpp src/io/sim_reader.cpp src/io/mavsdk_vehicle.cpp)
+add_library(path3d src/core/threading.cpp src/io/sim_reader.cpp src/io/mavsdk_vehicle.cpp
+  src/mapping/log_odds_mapper.cpp src/visualization/log_odds_map_visualizer.cpp)
 target_include_directories(path3d
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>)
 target_link_libraries(path3d
   PUBLIC Eigen3::Eigen ${OpenCV_LIBS} rclcpp::rclcpp ${sensor_msgs_TARGETS} tf2::tf2
-         tf2_ros::tf2_ros ${tf2_msgs_TARGETS})
+         tf2_ros::tf2_ros ${tf2_msgs_TARGETS} ${visualization_msgs_TARGETS})
 target_include_directories(path3d PUBLIC ${OpenCV_INCLUDE_DIRS})
+# visualization/ is ROS-facing too: it publishes the map to ROS topics.
 # mavsdk_vehicle.hpp is the MAVSDK-facing I/O layer and exposes MAVSDK types.
 target_link_libraries(path3d PUBLIC MAVSDK::mavsdk)
 
@@ -62,6 +70,10 @@ if(BUILD_TESTING)
   target_link_libraries(map_client_test path3d)
   ament_add_gtest(mapper_test test/mapper_test.cpp)
   target_link_libraries(mapper_test path3d)
+  ament_add_gtest(log_odds_map_test test/log_odds_map_test.cpp)
+  target_link_libraries(log_odds_map_test path3d)
+  ament_add_gtest(log_odds_map_visualizer_test test/log_odds_map_visualizer_test.cpp)
+  target_link_libraries(log_odds_map_visualizer_test path3d)
   ament_add_gtest(pipeline_test test/pipeline_test.cpp)
   target_link_libraries(pipeline_test path3d)
   ament_add_gtest(global_planner_test test/global_planner_test.cpp)
@@ -83,5 +95,5 @@ if(BUILD_TESTING)
 endif()
 
 ament_export_targets(export_path3d HAS_LIBRARY_TARGET)
-ament_export_dependencies(Eigen3 OpenCV rclcpp sensor_msgs tf2 tf2_ros tf2_msgs MAVSDK)
+ament_export_dependencies(Eigen3 OpenCV rclcpp sensor_msgs tf2 tf2_ros tf2_msgs visualization_msgs MAVSDK)
 ament_package()
