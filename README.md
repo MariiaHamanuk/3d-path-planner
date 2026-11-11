@@ -28,60 +28,27 @@ Very cool mentor
 ./docker/run.sh
 ```
 
+`run.sh` limits the container to two thirds of the cores and 8 GB of RAM (no swap). Change it with
+`DOCKER_CPUS=6 DOCKER_MEMORY=10g ./docker/run.sh`; it applies when the container starts.
+
 **3. Start Simulation & Services**
 
 Inside the running container
 ```bash
-./src/scripts/start.sh [-w <world>] [config-path]
+./scripts/start.sh [-w <world>] [config-path]
 ```
 
 Worlds live in `simulation/worlds/<name>.world`: `default` (flat ground, default) and `city` (200x200 m town).
-Pick one with `-w city`, `WORLD=city ./src/scripts/start.sh`, or `WORLD=city` in the config file.
+Pick one with `-w city`, `WORLD=city ./scripts/start.sh`, or `WORLD=city` in the config file.
 
-This launches a tmux session defined in `src/scripts/tmux.yml` with:
+This launches a tmux session defined in `scripts/tmux.yml` with:
 - `gz`- Gazebo simulation
 - `ardupilot` - ArduCopter SITL + MAVProxy console
 - `bridge`- ROS-Gz bridge
 - `foxglove`- Foxglove WebSocket bridge
 - `planner` - Shell pane for path-planning (wip)
 
----
-
-### Controlling the drone (ArduPilot)
-
-The drone runs ArduCopter SITL, connected to Gazebo through `ardupilot_gazebo`.
-
-**Console** - in the `ardupilot` tmux window (MAVProxy):
-```
-mode guided
-arm throttle
-takeoff 5
-guided 10 0 -5       # fly to local NED x y z (m)
-mode land
-```
-
-**QGroundControl** - on the host, with QGC closed/open, it autoconnects on UDP `14550`
-(MAVProxy sends there via `host.docker.internal`). If it doesn't, add a Comm Link:
-type UDP, listening port `14550`. On Linux, allow UDP 14550 through the host firewall.
-Use `QGC_HOST=<ip> ./src/scripts/start.sh` if QGC runs on another machine.
-
-Depth: `/depth_camera` (32FC1, meters, 320x240, hfov 1.047 rad, range 0.1-200 m) and `/depth_camera/points` (PointCloud2), same viewpoint as `/camera`.
-
-Extra ArduCopter params live in `src/scripts/bebop.parm` (starting values, not tuned).
+**Flying from QGroundControl:** open QGC on the host (it autoconnects on UDP 14550; `QGC_HOST=<ip> ./scripts/start.sh` if it runs elsewhere). In the Fly view: *Takeoff* (slide to confirm), right-click the map -> *Go to location*, then *Land* or *RTL*.
 
 ---
 
-### How to use tmux?
-
-As configured in `docker/.tmux.conf` (prefix is `Ctrl + b`):
-
-**Switching between windows**
-
-(`gz`, `ardupilot`, `bridge`, `foxglove`, `planner`):
-  - `Ctrl + b` then `0` .. `4`
-  - `Ctrl + b` then `n` (next) / `p` (previous)
-
-**Ending the Session**
-- `Ctrl + b` then `q`
-
-*the sky in the simulation is pink*
