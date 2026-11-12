@@ -50,5 +50,11 @@ This launches a tmux session defined in `scripts/tmux.yml` with:
 
 **Flying from QGroundControl:** open QGC on the host (it autoconnects on UDP 14550; `QGC_HOST=<ip> ./scripts/start.sh` if it runs elsewhere). In the Fly view: *Takeoff* (slide to confirm), right-click the map -> *Go to location*, then *Land* or *RTL*.
 
+**Comparing the global planners:** inside the container (no simulation needed)
+```bash
+./scripts/run_benchmark.sh
+```
+prints a table per test scene (path length, climb, time, explored nodes) for A* with each heuristic, Dijkstra, Lazy Theta*, RRT, RRT-Connect and RRT*, and writes `benchmark.csv`. See `docs/planning_algorithms.md`.
+
 ---
 

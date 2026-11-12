@@ -255,6 +255,8 @@ The thread counts integrated frames, dropped and unsynced images, and published 
 
 A `path3d::GlobalPlanner<M, R, P>` sets the general direction of flight: from where the drone is to wherever it should go, on the whole map. A global planner can be thought of as the manager of a task: going to a certain position behaves differently than exploring an enclosed area. It receives a request of type `R` (`path3d::ReplanRequest`) and returns a plan of type `P` (for example `path3d::GlobalPath`).
 
+The search-based global planners (A*, Dijkstra, Lazy Theta*, RRT, RRT-Connect, RRT*), their settings and their comparison are described in @ref planning_algorithms.
+
 #### API
 
 - `prepare()` brings the planner's map copy up to date. It returns true once a plan can be made, that is, once the copy holds a full map. The thread calls it before every `plan()`.
