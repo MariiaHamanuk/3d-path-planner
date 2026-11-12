@@ -2,3 +2,4 @@ build/
 log/
 install/
 docs/api/
+benchmark.csv

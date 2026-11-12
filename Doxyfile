@@ -2,7 +2,7 @@
 PROJECT_NAME           = "3D Path Planner"
 PROJECT_BRIEF          = "path3d: mapping, planning and control of a drone in simulation"
 OUTPUT_DIRECTORY       = docs/api
-INPUT                  = 3dpath/include docs/architecture.md docs/tutorial_line_planner.md
+INPUT                  = 3dpath/include docs/architecture.md docs/tutorial_line_planner.md docs/planning_algorithms.md
 RECURSIVE              = YES
 FILE_PATTERNS          = *.hpp *.md
 USE_MDFILE_AS_MAINPAGE = docs/architecture.md
