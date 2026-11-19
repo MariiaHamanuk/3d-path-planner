@@ -14,8 +14,11 @@
 #include <Eigen/Core>
 
 #include <algorithm>
+#include <cmath>
 #include <concepts>
 #include <cstddef>
+#include <limits>
+#include <optional>
 #include <vector>
 
 namespace path3d {
@@ -29,6 +32,7 @@ struct SearchPlannerConfig {
 	double min_altitude = 1.0;            ///< lowest z of the search box, m (unless start or goal is lower)
 	double max_altitude = 30.0;           ///< highest z of the search box, m (unless start or goal is higher)
 	std::size_t max_expansions = 2000000; ///< A* gives up after expanding this many voxels
+	double start_snap = 2.0;              ///< m; a start that is not free moves to the nearest free point this close
 };
 
 /**
@@ -53,6 +57,27 @@ inline double polyline_climb(const std::vector<Eigen::Vector3d>& points) {
 	double climb = 0.0;
 	for (std::size_t i = 1; i < points.size(); ++i) climb += std::max(0.0, points[i].z() - points[i - 1].z());
 	return climb;
+}
+
+/// The free point nearest to `p` on a grid of `step` within `radius`; `p` itself if it is free.
+template <std::predicate<const Eigen::Vector3d&> Free>
+std::optional<Eigen::Vector3d> nearest_free_point(const Eigen::Vector3d& p, double radius, double step, Free is_free) {
+	if (is_free(p)) return p;
+	const int n = static_cast<int>(std::ceil(radius / step));
+	std::optional<Eigen::Vector3d> best;
+	double best_distance = std::numeric_limits<double>::infinity();
+	for (int dx = -n; dx <= n; ++dx) {
+		for (int dy = -n; dy <= n; ++dy) {
+			for (int dz = -n; dz <= n; ++dz) {
+				const Eigen::Vector3d candidate = p + step * Eigen::Vector3d(dx, dy, dz);
+				const double distance = (candidate - p).norm();
+				if (distance > radius || distance >= best_distance || !is_free(candidate)) continue;
+				best = candidate;
+				best_distance = distance;
+			}
+		}
+	}
+	return best;
 }
 
 /**
@@ -96,14 +121,22 @@ public:
 		path.stamp = map.stamp;
 
 		const GridGraph<M> graph(map, search_bounds(request.position, m_goal, m_config.padding, m_config.min_altitude, m_config.max_altitude), m_config.space);
-		const auto result = a_star(graph, map.index_of(request.position), map.index_of(m_goal), m_heuristic, m_config.max_expansions);
+		const auto start = nearest_free_point(request.position, m_config.start_snap, map.resolution(),
+		                                      [&](const Eigen::Vector3d& p) { return graph.is_free(map.index_of(p)); });
+		if (!start) {
+			m_stats = {};
+			path.status = PlanStatus::Failed;
+			return path;
+		}
+		const auto result = a_star(graph, map.index_of(*start), map.index_of(m_goal), m_heuristic, m_config.max_expansions);
 		m_stats = {.found = result.found(), .explored = result.expanded};
 		if (!result.found()) {
 			path.status = PlanStatus::Failed;
 			return path;
 		}
 
-		path.waypoints = voxel_path_waypoints(map, result.path, request.position, m_goal);
+		path.waypoints = voxel_path_waypoints(map, result.path, *start, m_goal);
+		if (*start != request.position) path.waypoints.insert(path.waypoints.begin(), request.position);
 		m_stats.length = polyline_length(path.waypoints);
 		m_stats.climb = polyline_climb(path.waypoints);
 		return path;
@@ -142,14 +175,22 @@ public:
 		path.stamp = map.stamp;
 
 		const GridGraph<M> graph(map, search_bounds(request.position, m_goal, m_config.padding, m_config.min_altitude, m_config.max_altitude), m_config.space);
-		const auto result = lazy_theta_star(graph, map.index_of(request.position), map.index_of(m_goal), m_heuristic, m_config.max_expansions);
+		const auto start = nearest_free_point(request.position, m_config.start_snap, map.resolution(),
+		                                      [&](const Eigen::Vector3d& p) { return graph.is_free(map.index_of(p)); });
+		if (!start) {
+			m_stats = {};
+			path.status = PlanStatus::Failed;
+			return path;
+		}
+		const auto result = lazy_theta_star(graph, map.index_of(*start), map.index_of(m_goal), m_heuristic, m_config.max_expansions);
 		m_stats = {.found = result.found(), .explored = result.expanded};
 		if (!result.found()) {
 			path.status = PlanStatus::Failed;
 			return path;
 		}
 
-		path.waypoints = voxel_path_waypoints(map, result.path, request.position, m_goal);
+		path.waypoints = voxel_path_waypoints(map, result.path, *start, m_goal);
+		if (*start != request.position) path.waypoints.insert(path.waypoints.begin(), request.position);
 		m_stats.length = polyline_length(path.waypoints);
 		m_stats.climb = polyline_climb(path.waypoints);
 		return path;
@@ -195,13 +236,20 @@ public:
 		const OccupancySpace<M> space(map, search_bounds(request.position, m_goal, m_config.padding, m_config.min_altitude, m_config.max_altitude), m_config.space);
 		P params = m_params;
 		params.seed += request.id;
+		const auto start = nearest_free_point(request.position, m_config.start_snap, m_config.start_snap / 8.0,
+		                                      [&](const Eigen::Vector3d& p) { return space.is_free(p); });
+		if (!start) {
+			m_stats = {};
+			path.status = PlanStatus::Failed;
+			return path;
+		}
 		RrtResult<3> result;
 		if constexpr (std::same_as<P, RrtStarParams>) {
-			result = rrt_star<3>(space, request.position, m_goal, params);
+			result = rrt_star<3>(space, *start, m_goal, params);
 		} else if constexpr (std::same_as<P, RrtConnectParams>) {
-			result = rrt_connect<3>(space, request.position, m_goal, params);
+			result = rrt_connect<3>(space, *start, m_goal, params);
 		} else {
-			result = rrt<3>(space, request.position, m_goal, params);
+			result = rrt<3>(space, *start, m_goal, params);
 		}
 		m_stats = {.found = result.found(), .explored = result.tree_size};
 		if (!result.found()) {
@@ -209,7 +257,8 @@ public:
 			return path;
 		}
 		path.waypoints = std::move(result.path);
-		m_stats.length = result.cost;
+		if (*start != request.position) path.waypoints.insert(path.waypoints.begin(), request.position);
+		m_stats.length = polyline_length(path.waypoints);
 		m_stats.climb = polyline_climb(path.waypoints);
 		return path;
 	}

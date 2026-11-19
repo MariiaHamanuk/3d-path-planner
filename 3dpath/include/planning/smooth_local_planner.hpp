@@ -31,7 +31,8 @@ struct SmoothLocalPlannerConfig {
 	double stop_buffer = 0.5;
 	double replan_lead = 0.5;
 	double max_deviation = 1.5;
-	SearchSpaceConfig space{.margin = 0.6};
+	double escape_distance = 2.0;
+	SearchSpaceConfig space;
 };
 
 template <class M>
@@ -61,12 +62,16 @@ public:
 		}
 
 		double stop_s = m_s.back();
+		bool escaping = true;
 		for (std::size_t i = index_at(state.s); i < m_points.size() && m_s[i] <= state.s + m_config.check_distance; ++i) {
-			if (!space.is_free(m_points[i])) {
-				stop_s = std::max(state.s, m_s[i] - m_config.stop_buffer);
-				reason = ReplanReason::Blocked;
-				break;
+			if (space.is_free(m_points[i])) {
+				escaping = false;
+				continue;
 			}
+			if (escaping && m_s[i] <= state.s + m_config.escape_distance) continue;
+			stop_s = std::max(state.s, m_s[i] - m_config.stop_buffer);
+			reason = ReplanReason::Blocked;
+			break;
 		}
 
 		const std::vector<double> limit = speed_limits(stop_s);
