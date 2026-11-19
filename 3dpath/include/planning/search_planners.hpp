@@ -32,7 +32,7 @@ struct SearchPlannerConfig {
 	double min_altitude = 1.0;            ///< lowest z of the search box, m (unless start or goal is lower)
 	double max_altitude = 30.0;           ///< highest z of the search box, m (unless start or goal is higher)
 	std::size_t max_expansions = 2000000; ///< A* gives up after expanding this many voxels
-	double start_snap = 2.0;              ///< m; a start that is not free moves to the nearest free point this close
+	double start_snap = 2.0;              ///< m; a start that is not free moves to the nearest free point this close that it can reach in a straight line
 };
 
 /**
@@ -80,6 +80,33 @@ std::optional<Eigen::Vector3d> nearest_free_point(const Eigen::Vector3d& p, doub
 	return best;
 }
 
+/// The start of a path from the drone at `p`: `p` itself if `is_free`, otherwise the nearest free
+/// point (nearest_free_point()) that the drone can fly to in a straight line without touching an
+/// occupied voxel - never one on the other side of a wall. `space` says what counts as passable
+/// for that line (its margin is not used).
+template <OccupancyMap M, std::predicate<const Eigen::Vector3d&> Free>
+std::optional<Eigen::Vector3d> reachable_start(const M& map, const Eigen::Vector3d& p, double radius, double step,
+                                               const SearchSpaceConfig& space, Free is_free) {
+	SearchSpaceConfig touching = space;
+	touching.margin = 0.0;
+	const Eigen::AlignedBox3d around(p.array() - (radius + 1.0), p.array() + (radius + 1.0));
+	const OccupancySpace<M> line(map, around, touching);
+	const auto reachable = [&](const Eigen::Vector3d& q) {
+		/// the drone may itself be in a voxel the map calls occupied: then the line is checked from
+		/// where it first gets out
+		const double length = (q - p).norm();
+		const int samples = std::max(1, static_cast<int>(std::ceil(length / (0.25 * step))));
+		bool out = line.is_free(p);
+		for (int i = 1; i <= samples; ++i) {
+			const bool free = line.is_free(p + (q - p) * (static_cast<double>(i) / samples));
+			if (free) out = true;
+			if (!free && out) return false;
+		}
+		return out;
+	};
+	return nearest_free_point(p, radius, step, [&](const Eigen::Vector3d& q) { return is_free(q) && reachable(q); });
+}
+
 /**
  * @brief Waypoints of a voxel path: the exact start, the centers of the voxels where the path
  * turns, and the exact goal. Voxels on a straight stretch are left out.
@@ -121,8 +148,8 @@ public:
 		path.stamp = map.stamp;
 
 		const GridGraph<M> graph(map, search_bounds(request.position, m_goal, m_config.padding, m_config.min_altitude, m_config.max_altitude), m_config.space);
-		const auto start = nearest_free_point(request.position, m_config.start_snap, map.resolution(),
-		                                      [&](const Eigen::Vector3d& p) { return graph.is_free(map.index_of(p)); });
+		const auto start = reachable_start(map, request.position, m_config.start_snap, map.resolution(), m_config.space,
+		                                   [&](const Eigen::Vector3d& p) { return graph.is_free(map.index_of(p)); });
 		if (!start) {
 			m_stats = {};
 			path.status = PlanStatus::Failed;
@@ -175,8 +202,8 @@ public:
 		path.stamp = map.stamp;
 
 		const GridGraph<M> graph(map, search_bounds(request.position, m_goal, m_config.padding, m_config.min_altitude, m_config.max_altitude), m_config.space);
-		const auto start = nearest_free_point(request.position, m_config.start_snap, map.resolution(),
-		                                      [&](const Eigen::Vector3d& p) { return graph.is_free(map.index_of(p)); });
+		const auto start = reachable_start(map, request.position, m_config.start_snap, map.resolution(), m_config.space,
+		                                   [&](const Eigen::Vector3d& p) { return graph.is_free(map.index_of(p)); });
 		if (!start) {
 			m_stats = {};
 			path.status = PlanStatus::Failed;
@@ -236,8 +263,8 @@ public:
 		const OccupancySpace<M> space(map, search_bounds(request.position, m_goal, m_config.padding, m_config.min_altitude, m_config.max_altitude), m_config.space);
 		P params = m_params;
 		params.seed += request.id;
-		const auto start = nearest_free_point(request.position, m_config.start_snap, m_config.start_snap / 8.0,
-		                                      [&](const Eigen::Vector3d& p) { return space.is_free(p); });
+		const auto start = reachable_start(map, request.position, m_config.start_snap, m_config.start_snap / 8.0, m_config.space,
+		                                   [&](const Eigen::Vector3d& p) { return space.is_free(p); });
 		if (!start) {
 			m_stats = {};
 			path.status = PlanStatus::Failed;

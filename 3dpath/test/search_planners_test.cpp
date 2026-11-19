@@ -82,6 +82,22 @@ TEST(AStarGlobalPlanner, FailsForAGoalInTheWall) {
 	EXPECT_TRUE(path.waypoints.empty());
 }
 
+TEST(ReachableStart, NeverMovesTheStartThroughAWall) {
+	World world;
+	ASSERT_TRUE(world.map.sync());
+	/// only the far side of the wall (x >= 5.5) and the space 2 m behind the drone count as free
+	const auto free = [](const Eigen::Vector3d& p) { return p.x() > 5.5 || p.x() < 3.0; };
+	const Eigen::Vector3d drone(4.9, 0, 2);
+	/// the nearest free point is 1 m away through the wall; the reachable one is 2 m back
+	const auto nearest = nearest_free_point(drone, 2.0, kResolution, free);
+	ASSERT_TRUE(nearest);
+	EXPECT_GT(nearest->x(), 5.5);
+	const auto start = reachable_start(world.map.map(), drone, 2.0, kResolution, SearchSpaceConfig{}, free);
+	ASSERT_TRUE(start);
+	EXPECT_LT(start->x(), 3.0);
+	EXPECT_EQ(reachable_start(world.map.map(), Eigen::Vector3d(2, 0, 2), 2.0, kResolution, SearchSpaceConfig{}, free), Eigen::Vector3d(2, 0, 2));
+}
+
 TEST(AStarGlobalPlanner, FailsWhenOnlyKnownFreeSpaceIsAllowed) {
 	World world;
 	SearchPlannerConfig config;

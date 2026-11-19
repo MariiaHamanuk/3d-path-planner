@@ -267,7 +267,8 @@ private:
  *  - sends nothing before the first trajectory, so manual control works until a planner takes over;
  *  - samples the trajectory at the time of the newest pose (sim time);
  *  - holds position (a setpoint latched once at the current pose) when the pose is stale, the
- *    trajectory is too old (the planner stopped refreshing it) or has run out.
+ *    trajectory is too old (the planner stopped refreshing it) or has run out;
+ *  - sends a last hold when it stops, so the autopilot does not extrapolate a moving setpoint.
  */
 class CommanderThread : public Thread {
 public:
@@ -308,9 +309,7 @@ private:
 				pose_changed_at = wall_now;
 			}
 
-			const bool controllable = state && state->connected && state->armed && state->frames_ready &&
-			                          state->mode == FlightMode::External;
-			if (!controllable || !trajectory) {
+			if (!controllable(state) || !trajectory) {
 				hold.reset();
 				rate.sleep();
 				continue;
@@ -335,6 +334,22 @@ private:
 
 			rate.sleep();
 		}
+		send_final_hold(hold);
+	}
+
+	static bool controllable(const Msg<VehicleState>& state) {
+		return state && state->connected && state->armed && state->frames_ready && state->mode == FlightMode::External;
+	}
+
+	/// On stop: leaves the vehicle a plain hold (zero velocity and acceleration) if it was following
+	/// our setpoints. The autopilot goes on extrapolating the last setpoint's velocity and
+	/// acceleration for a while (ArduPilot: GUID_TIMEOUT), which can fly the drone far away.
+	void send_final_hold(const std::optional<Setpoint>& hold) {
+		const Msg<StampedPose> pose = m_poses->latest();
+		if (!controllable(m_state->latest()) || !m_trajectories->latest() || (!hold && !pose)) return;
+		const Setpoint final_hold = hold ? *hold : Setpoint{.stamp = pose->stamp, .position = pose->pose.position, .yaw = yaw_of(pose->pose.orientation)};
+		m_vehicle.send(final_hold);
+		++m_hold_count;
 	}
 
 	Vehicle& m_vehicle;

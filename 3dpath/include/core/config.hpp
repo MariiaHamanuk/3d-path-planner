@@ -85,14 +85,17 @@ struct LogOddsMapVisualizerConfig {
 };
 
 /**
- * @brief Path visualization for Foxglove (PathVisualizer, path_visualizer.hpp).
+ * @brief Path and plan visualization for Foxglove (PlanVisualizer, plan_visualizer.hpp).
  */
-struct PathVisualizerConfig {
-	std::string node_name = "path_visualizer";
+struct PlanVisualizerConfig {
+	std::string node_name = "plan_visualizer";
 	std::string frame_id = "default";  ///< frame of the published paths = Gazebo world name
-	double rate_hz = 5.0;              ///< how often to check for new paths and poses
-	std::string planned_path_topic = "/planner/planned_path";
-	std::string flown_path_topic = "/planner/path";
+	double rate_hz = 10.0;             ///< how often to publish what changed
+	std::string planned_path_topic = "/planner/planned_path";  ///< the newest global path
+	std::string flown_path_topic = "/planner/path";            ///< where the drone has flown
+	std::string local_path_topic = "/planner/local_path";      ///< the smoothed path the local planner flies
+	std::string trajectory_topic = "/planner/trajectory";      ///< the newest trajectory sent to the drone
+	std::string stop_point_topic = "/planner/stop_point";      ///< where the drone stops for an obstacle
 	double min_flown_step = 0.1;  ///< minimum distance (m) between recorded flown poses
 };
 

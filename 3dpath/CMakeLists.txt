@@ -30,7 +30,7 @@ find_package(MAVSDK REQUIRED)
 # headers uses only Eigen + OpenCV + std types (consumers use SimReader through Reader).
 add_library(path3d src/core/threading.cpp src/io/sim_reader.cpp src/io/mavsdk_vehicle.cpp
   src/mapping/log_odds_mapper.cpp src/visualization/log_odds_map_visualizer.cpp
-  src/visualization/path_visualizer.cpp)
+  src/visualization/plan_visualizer.cpp)
 target_include_directories(path3d
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -50,8 +50,6 @@ add_executable(path3d_main apps/main.cpp)
 target_link_libraries(path3d_main path3d)
 add_executable(line_planner_demo apps/line_planner_demo.cpp)
 target_link_libraries(line_planner_demo path3d)
-add_executable(smooth_planner_demo apps/smooth_planner_demo.cpp)
-target_link_libraries(smooth_planner_demo path3d)
 add_executable(planner_benchmark apps/planner_benchmark.cpp)
 target_link_libraries(planner_benchmark path3d)
 add_executable(local_planner_demo apps/local_planner_demo.cpp)
@@ -60,7 +58,7 @@ target_link_libraries(local_planner_demo path3d)
 install(DIRECTORY include/ DESTINATION include)
 install(TARGETS path3d EXPORT export_path3d
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
-install(TARGETS path3d_main line_planner_demo smooth_planner_demo planner_benchmark local_planner_demo DESTINATION lib/${PROJECT_NAME})
+install(TARGETS path3d_main line_planner_demo planner_benchmark local_planner_demo DESTINATION lib/${PROJECT_NAME})
 
 
 if(BUILD_TESTING)
@@ -105,8 +103,8 @@ if(BUILD_TESTING)
   target_link_libraries(search_algorithms_test path3d)
   ament_add_gtest(search_planners_test test/search_planners_test.cpp)
   target_link_libraries(search_planners_test path3d)
-  ament_add_gtest(path_following_local_planner_test test/path_following_local_planner_test.cpp)
-  target_link_libraries(path_following_local_planner_test path3d)
+  ament_add_gtest(trajectory_local_planner_test test/trajectory_local_planner_test.cpp)
+  target_link_libraries(trajectory_local_planner_test path3d)
 endif()
 
 ament_export_targets(export_path3d HAS_LIBRARY_TARGET)

@@ -10,3 +10,17 @@ ATC_RAT_PIT_I 0.07
 ATC_RAT_PIT_D 0.002
 ATC_RAT_YAW_P 0.3
 ATC_RAT_YAW_I 0.03
+
+# Guided-mode limits, with room above what TrajectoryLocalPlanner commands (2.5 m/s^2, emergency
+# 4.5 m/s^2, 2 m/s vertical). With the defaults (2.5 m/s^2, jerk 5 m/s^3, 1 m/s^2 vertical) the
+# autopilot could not follow the planned stops: it lagged, then flew faster than commanded and
+# overshot into obstacles.
+WPNAV_ACCEL 500
+PSC_JERK_XY 20
+WPNAV_ACCEL_Z 400
+PSC_JERK_Z 10
+WPNAV_SPEED_UP 500
+WPNAV_SPEED_DN 300
+# Without new setpoints for this long, stop extrapolating the last one (default 3 s, which flew the
+# drone ~18 m away when the planner ended right after a braking setpoint).
+GUID_TIMEOUT 0.5

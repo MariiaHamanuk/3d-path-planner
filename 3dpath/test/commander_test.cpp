@@ -130,14 +130,31 @@ TEST(CommanderThread, FollowsTheTrajectoryAtThePoseTime) {
 		std::this_thread::sleep_for(100ms);
 	}
 	f.commander.stop();
-	const auto sent = f.vehicle.sent();
+	auto sent = f.vehicle.sent();
 	ASSERT_GE(sent.size(), 10u);
-	EXPECT_EQ(f.commander.hold_count(), 0u);
+	/// the last one is the hold sent on stop
+	EXPECT_EQ(f.commander.hold_count(), 1u);
+	sent.pop_back();
 	for (const Setpoint& setpoint : sent) {
 		/// sampled where the trajectory says
 		EXPECT_NEAR(setpoint.position.x(), setpoint.stamp, 1e-6);
 		EXPECT_TRUE(setpoint.velocity.isApprox(Eigen::Vector3d(1, 0, 0)));
 	}
+}
+
+TEST(CommanderThread, LeavesAPlainHoldWhenItStops) {
+	Fixture f;
+	f.vehicle.report(controllable());
+	const TimeSec now = f.feed.now();
+	f.trajectories.publish(line(now, now, now + 100.0));
+	f.commander.start();
+	ASSERT_TRUE(wait_for([&] { return f.commander.sent_count() >= 5; }, 2s));
+	f.commander.stop();
+	/// not the moving setpoint, which the autopilot would go on extrapolating
+	const Setpoint last = f.vehicle.sent().back();
+	EXPECT_TRUE(last.position.isApprox(Eigen::Vector3d(3, 4, 5)));
+	EXPECT_TRUE(last.velocity.isZero());
+	EXPECT_TRUE(last.acceleration.isZero());
 }
 
 TEST(CommanderThread, HoldsAtTheLatchedPoseWhenTheTrajectoryRunsOut) {
