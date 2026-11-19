@@ -1,19 +1,20 @@
 #pragma once
 
-#include <cstddef>
 #include <chrono>
+#include <cstddef>
 #include <deque>
 #include <mutex>
+#include <source_location>
 
 namespace path3d::profiling {
 
 // EventBuffer element, takes in starting, ending time of the func, and the func name
 struct Event {
     std::chrono::steady_clock::time_point start, end;
-    const char* func_name;
+    const char* func_name = nullptr;
 };
 
-template<size_t N>
+template<std::size_t N>
 struct EventBuffer {
     std::mutex mutex;
     std::deque<Event> buf;
@@ -39,19 +40,27 @@ struct EventBuffer {
     }
 };
 
-template <std::size_t N>
+inline constexpr std::size_t kBufferCapacity = 4096;
+using ThreadBuffer = EventBuffer<kBufferCapacity>;
+
+namespace detail {
+ThreadBuffer* current_thread_buffer();
+}  // namespace detail
+
 class ScopedTime {
 public:
-    ScopedTime(EventBuffer<N>& buf, const char* func_name)
-        : m_buf(buf)
+    explicit ScopedTime(const char* func_name = std::source_location::current().function_name())
+        : m_buf(detail::current_thread_buffer())
     {
+        if (!m_buf) return;
         m_event.func_name = func_name;
         m_event.start = std::chrono::steady_clock::now();
     }
 
     ~ScopedTime() noexcept {
+        if (!m_buf) return;
         m_event.end = std::chrono::steady_clock::now();
-        m_buf.push(m_event);
+        m_buf->push(m_event);
     }
 
     ScopedTime(const ScopedTime&) = delete;
@@ -60,7 +69,7 @@ public:
     ScopedTime& operator=(ScopedTime&&) = delete;
 
 private:
-    EventBuffer<N>& m_buf;
+    ThreadBuffer* m_buf = nullptr;
     Event m_event;
 };
 
