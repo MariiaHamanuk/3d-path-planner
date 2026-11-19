@@ -50,6 +50,8 @@ add_executable(path3d_main apps/main.cpp)
 target_link_libraries(path3d_main path3d)
 add_executable(line_planner_demo apps/line_planner_demo.cpp)
 target_link_libraries(line_planner_demo path3d)
+add_executable(smooth_planner_demo apps/smooth_planner_demo.cpp)
+target_link_libraries(smooth_planner_demo path3d)
 add_executable(planner_benchmark apps/planner_benchmark.cpp)
 target_link_libraries(planner_benchmark path3d)
 add_executable(local_planner_demo apps/local_planner_demo.cpp)
@@ -58,7 +60,8 @@ target_link_libraries(local_planner_demo path3d)
 install(DIRECTORY include/ DESTINATION include)
 install(TARGETS path3d EXPORT export_path3d
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
-install(TARGETS path3d_main line_planner_demo planner_benchmark local_planner_demo DESTINATION lib/${PROJECT_NAME})
+install(TARGETS path3d_main line_planner_demo smooth_planner_demo planner_benchmark local_planner_demo DESTINATION lib/${PROJECT_NAME})
+
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
