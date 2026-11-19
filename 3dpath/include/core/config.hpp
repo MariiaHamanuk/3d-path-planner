@@ -85,6 +85,18 @@ struct LogOddsMapVisualizerConfig {
 };
 
 /**
+ * @brief Path visualization for Foxglove (PathVisualizer, path_visualizer.hpp).
+ */
+struct PathVisualizerConfig {
+	std::string node_name = "path_visualizer";
+	std::string frame_id = "default";  ///< frame of the published paths = Gazebo world name
+	double rate_hz = 5.0;              ///< how often to check for new paths and poses
+	std::string planned_path_topic = "/planner/planned_path";
+	std::string flown_path_topic = "/planner/path";
+	double min_flown_step = 0.1;  ///< minimum distance (m) between recorded flown poses
+};
+
+/**
  * @brief A planner's copy of the map (MapClient, clients.hpp).
  */
 struct MapClientConfig {

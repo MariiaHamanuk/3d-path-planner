@@ -19,6 +19,7 @@
 #include "planning/path_following_local_planner.hpp"
 #include "planning/search_planners.hpp"
 #include "visualization/log_odds_map_visualizer.hpp"
+#include "visualization/path_visualizer.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -119,6 +120,9 @@ int main(int argc, char** argv) {
 	}
 	PathFollowingLocalPlanner<Map> local_planner(local_map, local_uav, local_config);
 	Pipe<GlobalPath, ReplanRequest> pipe;
+	PathVisualizerConfig path_vis_config;
+	path_vis_config.frame_id = config.sim_reader.world_frame;
+	PathVisualizer path_visualizer(pipe.down(), sensors.pose, path_vis_config);
 	GlobalPlanningThread<Map, GlobalPath, ReplanRequest> global_thread(*global_planner, pipe, std::nullopt, config.global_planning);
 	LocalPlanningThread<Map, GlobalPath, ReplanRequest> local_thread(local_planner, pipe, trajectories, config.local_planning);
 	global_thread.start();

@@ -15,6 +15,7 @@
   <depend>tf2_ros</depend>
   <depend>tf2_msgs</depend>
   <depend>visualization_msgs</depend>
+  <depend>nav_msgs</depend>
   <depend>eigen</depend>
   <depend>libopencv-dev</depend>
 
