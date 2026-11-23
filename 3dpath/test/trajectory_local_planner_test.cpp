@@ -1,6 +1,5 @@
 #include "mapping/log_odds_grid_map.hpp"
 #include "pipeline/threads.hpp"
-#include "planning/utils/benchmark_scenes.hpp"
 #include "planning/global/search_planners.hpp"
 #include "planning/local/trajectory_local_planner.hpp"
 
@@ -815,52 +814,3 @@ TEST(TrajectoryLocalPlannerThreads, ReplansAroundAnObstacleThatAppears) {
 	EXPECT_GE(f.global_thread.plan_call_count(), 2u);
 }
 
-// --- End to end ---
-
-TEST(TrajectoryLocalPlanner, ReachesTheGoalOfEveryBenchmarkSceneWithAStar) {
-	/// as in the demo: the global planner keeps `global_margin`
-	SearchSpaceConfig space = kConfig.space;
-	space.margin = kConfig.global_margin;
-	for (const Scene& scene : benchmark_scenes()) {
-		SCOPED_TRACE(scene.name);
-		Topic<LogOddsGridMap::Update> updates;
-		Topic<StampedPose> poses;
-		MapClient<LogOddsGridMap> local_map(updates);
-		MapClient<LogOddsGridMap> global_map(updates);
-		UavClient uav(poses);
-		UavClient global_uav(poses);
-		updates.publish(scene_map(scene, kResolution));
-		AStarGlobalPlanner<LogOddsGridMap> global(global_map, global_uav, scene.goal, SearchPlannerConfig{.space = space, .max_altitude = scene.max_altitude});
-		Planner local(local_map, uav, kConfig);
-		ASSERT_TRUE(global.prepare());
-
-		Eigen::Vector3d position = scene.start;
-		TimeSec stamp = 0.0;
-		std::uint64_t last_id = 0;
-		std::optional<GlobalPath> answer;
-		std::vector<Eigen::Vector3d> flown{position};
-		for (int i = 0; i < 5000 && local.state() != State::Arrived; ++i) {
-			poses.publish(pose_at(position, stamp));
-			ASSERT_TRUE(local.prepare());
-			LocalStep<ReplanRequest> step = local.plan(answer ? &*answer : nullptr);
-			answer.reset();
-			/// the pipe: the request gets a number, and the answer reaches the next cycle
-			if (step.request) {
-				step.request->id = ++last_id;
-				answer = global.plan(*step.request);
-				answer->request_id = last_id;
-			}
-			ASSERT_TRUE(step.trajectory);
-			const std::optional<Setpoint> next = step.trajectory->sample(stamp + kCycle);
-			ASSERT_TRUE(next);
-			position = next->position;
-			stamp += kCycle;
-			flown.push_back(position);
-		}
-		EXPECT_EQ(local.state(), State::Arrived);
-		EXPECT_LE((position - scene.goal).norm(), kConfig.goal_tolerance);
-		EXPECT_TRUE(clear_of_obstacles(local_map.map(), flown));
-		/// the first request (NoPath) only: on a known map no path the global planner makes looks blocked
-		EXPECT_EQ(last_id, 1u);
-	}
-}

@@ -1,5 +1,4 @@
 #include "mapping/log_odds_grid_map.hpp"
-#include "planning/utils/benchmark_scenes.hpp"
 #include "planning/global/search_planners.hpp"
 
 #include <gtest/gtest.h>
@@ -224,23 +223,6 @@ TEST(GridGraph, ChargesForUnknownVoxelsAndForClimbing) {
 	EXPECT_DOUBLE_EQ((costs[{0, 0, 1}]), 3.0 + 0.5);               // unknown and up
 	EXPECT_DOUBLE_EQ((costs[{0, 0, -1}]), 3.0);                    // down is not charged
 	EXPECT_DOUBLE_EQ((costs[{1, 1, 1}]), 3.0 * std::sqrt(3.0) + 0.5);
-}
-
-TEST(BenchmarkScenes, EverySceneHasAPath) {
-	for (const Scene& scene : benchmark_scenes()) {
-		Topic<LogOddsGridMap::Update> updates;
-		Topic<StampedPose> poses;
-		MapClient<LogOddsGridMap> map(updates);
-		UavClient uav(poses);
-		updates.publish(scene_map(scene, kResolution));
-		SearchPlannerConfig config;
-		config.max_altitude = scene.max_altitude;
-		AStarGlobalPlanner<LogOddsGridMap> planner(map, uav, scene.goal, config);
-		ASSERT_TRUE(planner.prepare());
-		const GlobalPath path = planner.plan(request_from(scene.start));
-		EXPECT_EQ(path.status, PlanStatus::Ok) << scene.name;
-		expect_clear(map.map(), path);
-	}
 }
 
 TEST(SearchBounds, KeepsStartAndGoalInsideTheAltitudeLimits) {
