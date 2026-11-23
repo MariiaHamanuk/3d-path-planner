@@ -1,9 +1,9 @@
-#include "planning/algorithms/a_star.hpp"
-#include "planning/algorithms/heuristics.hpp"
-#include "planning/algorithms/lazy_theta_star.hpp"
-#include "planning/algorithms/rrt.hpp"
-#include "planning/algorithms/rrt_connect.hpp"
-#include "planning/algorithms/rrt_star.hpp"
+#include "planning/global/algorithms/a_star.hpp"
+#include "planning/global/algorithms/heuristics.hpp"
+#include "planning/global/algorithms/lazy_theta_star.hpp"
+#include "planning/global/algorithms/rrt.hpp"
+#include "planning/global/algorithms/rrt_connect.hpp"
+#include "planning/global/algorithms/rrt_star.hpp"
 
 #include <gtest/gtest.h>
 

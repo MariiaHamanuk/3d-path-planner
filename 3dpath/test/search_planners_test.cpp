@@ -1,6 +1,6 @@
 #include "mapping/log_odds_grid_map.hpp"
-#include "planning/benchmark_scenes.hpp"
-#include "planning/search_planners.hpp"
+#include "planning/utils/benchmark_scenes.hpp"
+#include "planning/global/search_planners.hpp"
 
 #include <gtest/gtest.h>
 

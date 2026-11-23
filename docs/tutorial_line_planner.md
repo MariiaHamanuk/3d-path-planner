@@ -11,7 +11,7 @@ The finished code is already in the repository, so you can always look at it:
 
 | What | Where |
 |---|---|
-| the two planners | `3dpath/include/planning/line_planner.hpp` |
+| the two planners | `3dpath/include/planning/utils/line_planner.hpp` |
 | a program that flies the drone with them | `3dpath/apps/line_planner_demo.cpp` |
 | the script that runs it | `scripts/run_line_planner.sh` |
 | tests of the planners | `3dpath/test/line_planner_test.cpp` |
@@ -57,8 +57,8 @@ Create `3dpath/include/planning/my_planners.hpp`:
 
 #include "mapping/log_odds_grid_map.hpp"
 #include "pipeline/clients.hpp"
-#include "planning/global_planner.hpp"
-#include "planning/local_planner.hpp"
+#include "planning/core/global_planner.hpp"
+#include "planning/core/local_planner.hpp"
 
 using namespace path3d;
 

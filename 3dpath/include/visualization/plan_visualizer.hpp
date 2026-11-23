@@ -4,7 +4,7 @@
 #include "core/config.hpp"
 #include "core/threading.hpp"
 #include "core/types.hpp"
-#include "planning/trajectory_planner_report.hpp"
+#include "planning/local/trajectory_planner_report.hpp"
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <nav_msgs/msg/path.hpp>

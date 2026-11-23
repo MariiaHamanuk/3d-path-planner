@@ -25,9 +25,9 @@ digraph layers {
 
 | Layer | Files | Job |
 |---|---|---|
-| Planner | `planning/search_planners.hpp` | Talks to the system: takes a `path3d::ReplanRequest`, builds the search space on its map copy, runs the algorithm, and returns a `path3d::GlobalPath` (always: `Failed` when there is no path). |
-| Map adapter | `planning/algorithms/map_adapters.hpp` | Turns a map into what an algorithm can search: `path3d::GridGraph` (voxels and their 26 neighbors) for A*, `path3d::OccupancySpace` (points and segments in meters) for RRT and RRT*. Holds the safety rules: margin around the drone, search box, unknown space. |
-| Algorithm | `planning/algorithms/a_star.hpp`, `lazy_theta_star.hpp`, `rrt.hpp`, `rrt_connect.hpp`, `rrt_star.hpp`, `heuristics.hpp` | Pure search. Constrained only by the concepts `path3d::SearchGraph` and `path3d::SamplingSpace`, so they can be tested on tiny made-up worlds. |
+| Planner | `planning/global/search_planners.hpp` | Talks to the system: takes a `path3d::ReplanRequest`, builds the search space on its map copy, runs the algorithm, and returns a `path3d::GlobalPath` (always: `Failed` when there is no path). |
+| Map adapter | `planning/utils/map_adapters.hpp` | Turns a map into what an algorithm can search: `path3d::GridGraph` (voxels and their 26 neighbors) for A*, `path3d::OccupancySpace` (points and segments in meters) for RRT and RRT*. Holds the safety rules: margin around the drone, search box, unknown space. |
+| Algorithm | `planning/global/algorithms/a_star.hpp`, `lazy_theta_star.hpp`, `rrt.hpp`, `rrt_connect.hpp`, `rrt_star.hpp`, `heuristics.hpp` | Pure search. Constrained only by the concepts `path3d::SearchGraph` and `path3d::SamplingSpace`, so they can be tested on tiny made-up worlds. |
 
 ### The algorithms {#planning_algorithm_list}
 

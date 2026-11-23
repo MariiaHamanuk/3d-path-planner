@@ -1,6 +1,6 @@
 #pragma once
 
-#include "planning/search_planners.hpp"
+#include "planning/global/search_planners.hpp"
 
 #include <Eigen/Core>
 

@@ -18,7 +18,7 @@
 #include "mapping/log_odds_mapper.hpp"
 #include "pipeline/clients.hpp"
 #include "pipeline/threads.hpp"
-#include "planning/line_planner.hpp"
+#include "planning/utils/line_planner.hpp"
 #include "visualization/log_odds_map_visualizer.hpp"
 
 #include <atomic>

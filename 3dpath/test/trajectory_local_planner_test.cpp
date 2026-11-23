@@ -1,8 +1,8 @@
 #include "mapping/log_odds_grid_map.hpp"
 #include "pipeline/threads.hpp"
-#include "planning/benchmark_scenes.hpp"
-#include "planning/search_planners.hpp"
-#include "planning/trajectory_local_planner.hpp"
+#include "planning/utils/benchmark_scenes.hpp"
+#include "planning/global/search_planners.hpp"
+#include "planning/local/trajectory_local_planner.hpp"
 
 #include <gtest/gtest.h>
 

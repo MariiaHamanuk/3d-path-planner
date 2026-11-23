@@ -1,6 +1,6 @@
 #include "mapping/log_odds_grid_map.hpp"
 #include "pipeline/threads.hpp"
-#include "planning/line_planner.hpp"
+#include "planning/utils/line_planner.hpp"
 
 #include <gtest/gtest.h>
 

@@ -2,8 +2,8 @@
 
 #include "mapping/log_odds_grid_map.hpp"
 #include "pipeline/clients.hpp"
-#include "planning/global_planner.hpp"
-#include "planning/local_planner.hpp"
+#include "planning/core/global_planner.hpp"
+#include "planning/core/local_planner.hpp"
 
 #include <Eigen/Core>
 

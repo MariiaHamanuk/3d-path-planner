@@ -3,9 +3,9 @@
 #include "core/types.hpp"
 #include "mapping/map_view.hpp"
 #include "pipeline/clients.hpp"
-#include "planning/algorithms/map_adapters.hpp"
-#include "planning/local_planner.hpp"
-#include "planning/trajectory_planner_report.hpp"
+#include "planning/utils/map_adapters.hpp"
+#include "planning/core/local_planner.hpp"
+#include "planning/local/trajectory_planner_report.hpp"
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>

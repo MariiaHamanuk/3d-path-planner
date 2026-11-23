@@ -1,6 +1,6 @@
 #pragma once
 
-#include "planning/algorithms/a_star.hpp"
+#include "planning/global/algorithms/a_star.hpp"
 
 #include <algorithm>
 #include <concepts>

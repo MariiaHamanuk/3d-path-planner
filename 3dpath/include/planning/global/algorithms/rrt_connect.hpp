@@ -1,6 +1,6 @@
 #pragma once
 
-#include "planning/algorithms/rrt.hpp"
+#include "planning/global/algorithms/rrt.hpp"
 
 #include <algorithm>
 #include <array>

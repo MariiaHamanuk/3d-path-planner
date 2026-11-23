@@ -24,8 +24,8 @@
 #include "mapping/log_odds_mapper.hpp"
 #include "pipeline/clients.hpp"
 #include "pipeline/threads.hpp"
-#include "planning/global_planner_factory.hpp"
-#include "planning/trajectory_local_planner.hpp"
+#include "planning/global/global_planner_factory.hpp"
+#include "planning/local/trajectory_local_planner.hpp"
 #include "visualization/log_odds_map_visualizer.hpp"
 #include "visualization/plan_visualizer.hpp"
 

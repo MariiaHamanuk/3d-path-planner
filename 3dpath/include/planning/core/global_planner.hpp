@@ -2,7 +2,7 @@
 
 #include "pipeline/clients.hpp"
 #include "mapping/map_view.hpp"
-#include "planning/plan_protocol.hpp"
+#include "planning/core/plan_protocol.hpp"
 
 namespace path3d {
 
