@@ -226,11 +226,11 @@ int main(int argc, char** argv) {
 	// to the local planner as soon as the drone drifts a little. The local planner smooths the path
 	// with the global margin, and asks for routes only from points that free.
 	SearchPlannerConfig global_config;
-	global_config.space.margin = 1.0;
+	global_config.margin = 1.0;
 	TrajectoryLocalPlannerConfig local_config;
-	local_config.space.margin = 0.5;
-	local_config.global_margin = global_config.space.margin;
-	if (local_config.space.margin >= global_config.space.margin) {
+	local_config.margin = 0.5;
+	local_config.global_margin = global_config.margin;
+	if (local_config.margin >= global_config.margin) {
 		std::cerr << "the local margin must be smaller than the global one: every global path would look blocked\n";
 		return 2;
 	}
@@ -282,7 +282,7 @@ int main(int argc, char** argv) {
 
 	// The planning threads, and the paths for Foxglove.
 	Pipe<GlobalPath, ReplanRequest> pipe;
-	FlightLog log(reports, pipe.up(), FlightLog::Limits{.close = local_config.space.margin});
+	FlightLog log(reports, pipe.up(), FlightLog::Limits{.close = local_config.margin});
 	PlanVisualizerConfig plan_visualizer_config;
 	plan_visualizer_config.frame_id = config.sim_reader.world_frame;
 	PlanVisualizer plan_visualizer(pipe.down(), sensors.pose, trajectories, reports, plan_visualizer_config);

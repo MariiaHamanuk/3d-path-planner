@@ -3,7 +3,7 @@
 #include "core/types.hpp"
 #include "mapping/map_view.hpp"
 #include "pipeline/clients.hpp"
-#include "planning/utils/map_adapters.hpp"
+#include "planning/utils/search_spaces.hpp"
 #include "planning/core/local_planner.hpp"
 #include "planning/local/trajectory_planner_report.hpp"
 
@@ -48,9 +48,11 @@ struct TrajectoryLocalPlannerConfig {
 	double path_step = 0.25;     ///< spacing of the points of the smoothed path, m
 	double corner_radius = 2.0;  ///< a corner is rounded from this far before it to this far after it, m
 
-	/// What counts as free when the path ahead is checked for obstacles (margin, unknown space). Its
-	/// margin must be smaller than `global_margin`: otherwise every global path looks blocked.
-	SearchSpaceConfig space;
+	/// Free space needed around the drone when the path ahead is checked for obstacles, m. It must be
+	/// smaller than `global_margin`: otherwise every global path looks blocked.
+	double margin = 0.5;
+	/// Whether Unknown space counts as free when the path ahead is checked for obstacles.
+	bool unknown_is_free = true;
 	/// The global planner's margin, m. The path is shortened and rounded with it, so the smoothing
 	/// never brings it closer to obstacles than the global planner did; and the drone asks for a
 	/// route only from a point this free, so the global planner never has to move the start.
@@ -349,7 +351,7 @@ private:
 	/// Shortens, rounds and samples `raw` into the path, with the speed limit of every point from
 	/// its curvature and slope.
 	void set_path(const std::vector<Eigen::Vector3d>& raw) {
-		const OccupancySpace<M> space = free_space(std::max(m_config.global_margin, m_config.space.margin));
+		const OccupancySpace<M> space = free_space(std::max(m_config.global_margin, m_config.margin));
 		resample(rounded(space, shortcut(space, raw)));
 		m_shared_path = std::make_shared<const std::vector<Eigen::Vector3d>>(m_points);
 	}
@@ -627,7 +629,7 @@ private:
 	/// The first points ahead of `s` (up to `check_distance`) inside the margin of an obstacle, and in
 	/// an occupied voxel.
 	Blockage find_blockage(double s) const {
-		const OccupancySpace<M> margin = free_space(m_config.space.margin);
+		const OccupancySpace<M> margin = free_space(m_config.margin);
 		const OccupancySpace<M> touching = free_space(0.0);
 		Blockage blockage;
 		for (std::size_t i = index_at(s); i < m_points.size() && m_s[i] <= s + m_config.check_distance; ++i) {
@@ -772,15 +774,13 @@ private:
 	/// The map as a space with `margin` around every point; unbounded (the global planner keeps its
 	/// paths within its altitude limits).
 	OccupancySpace<M> free_space(double margin) const {
-		SearchSpaceConfig config = m_config.space;
-		config.margin = margin;
 		const Eigen::AlignedBox3d everywhere(Eigen::Vector3d::Constant(-1e6), Eigen::Vector3d::Constant(1e6));
-		return OccupancySpace<M>(this->m_map.map(), everywhere, config);
+		return OccupancySpace<M>(this->m_map.map(), everywhere, margin, m_config.unknown_is_free);
 	}
 
 	/// Whether a global planner can start a path at `position`: `global_margin` of free space around it.
 	bool start_free(const Eigen::Vector3d& position) const {
-		return free_space(std::max(m_config.global_margin, m_config.space.margin)).is_free(position);
+		return free_space(std::max(m_config.global_margin, m_config.margin)).is_free(position);
 	}
 
 	/// Whether the drone can escape from `from` to `to`: a route can start at `to`, and the straight

@@ -86,9 +86,7 @@ std::vector<Eigen::Vector3d> positions(const Trajectory& trajectory) {
 
 /// Whether the straight lines from point to point stay out of the occupied voxels (no margin).
 bool clear_of_obstacles(const LogOddsGridMap& map, const std::vector<Eigen::Vector3d>& points) {
-	SearchSpaceConfig config;
-	config.margin = 0.0;
-	const OccupancySpace<LogOddsGridMap> space(map, Eigen::AlignedBox3d(Eigen::Vector3d::Constant(-1000), Eigen::Vector3d::Constant(1000)), config);
+	const OccupancySpace<LogOddsGridMap> space(map, Eigen::AlignedBox3d(Eigen::Vector3d::Constant(-1000), Eigen::Vector3d::Constant(1000)), 0.0, true);
 	for (std::size_t i = 1; i < points.size(); ++i) {
 		if (!space.segment_free(points[i - 1], points[i])) return false;
 	}
@@ -169,7 +167,7 @@ void expect_acceleration_limited(const Trajectory& trajectory, double accelerati
 }
 
 /// Both planners with their threads, as in line_planner_test.cpp: A* and the local planner, on a map
-/// with the given occupied voxels. Both use the default SearchSpaceConfig.
+/// with the given occupied voxels. Both use the default margin and unknown-space settings.
 struct Fixture {
 	explicit Fixture(Eigen::Vector3d goal, std::vector<LogOddsCell> occupied = {})
 	    : local_map(map_updates),

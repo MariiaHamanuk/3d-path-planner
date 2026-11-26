@@ -9,6 +9,9 @@
 
 using namespace path3d;
 
+static_assert(SearchGraph<GridMapSearchSpace<LogOddsGridMap>>);
+static_assert(LineCost<GridLineCost<LogOddsGridMap, StepCost>, Eigen::Vector3i>);
+
 namespace {
 
 constexpr double kResolution = 0.5;
@@ -45,9 +48,7 @@ ReplanRequest request_from(const Eigen::Vector3d& position, std::uint64_t id = 1
 
 /// Every segment of the path keeps away from occupied voxels.
 void expect_clear(const LogOddsGridMap& map, const GlobalPath& path) {
-	SearchSpaceConfig config;
-	config.margin = 0.0;
-	const OccupancySpace<LogOddsGridMap> space(map, Eigen::AlignedBox3d(Eigen::Vector3d::Constant(-100), Eigen::Vector3d::Constant(100)), config);
+	const OccupancySpace<LogOddsGridMap> space(map, Eigen::AlignedBox3d(Eigen::Vector3d::Constant(-100), Eigen::Vector3d::Constant(100)), 0.0, true);
 	for (std::size_t i = 1; i < path.waypoints.size(); ++i) {
 		EXPECT_TRUE(space.segment_free(path.waypoints[i - 1], path.waypoints[i])) << "segment " << i;
 	}
@@ -89,16 +90,16 @@ TEST(ReachableStart, NeverMovesTheStartThroughAWall) {
 	const auto nearest = nearest_free_point(drone, 2.0, kResolution, free);
 	ASSERT_TRUE(nearest);
 	EXPECT_GT(nearest->x(), 5.5);
-	const auto start = reachable_start(world.map.map(), drone, 2.0, kResolution, SearchSpaceConfig{}, free);
+	const auto start = reachable_start(world.map.map(), drone, 2.0, kResolution, true, free);
 	ASSERT_TRUE(start);
 	EXPECT_LT(start->x(), 3.0);
-	EXPECT_EQ(reachable_start(world.map.map(), Eigen::Vector3d(2, 0, 2), 2.0, kResolution, SearchSpaceConfig{}, free), Eigen::Vector3d(2, 0, 2));
+	EXPECT_EQ(reachable_start(world.map.map(), Eigen::Vector3d(2, 0, 2), 2.0, kResolution, true, free), Eigen::Vector3d(2, 0, 2));
 }
 
 TEST(AStarGlobalPlanner, FailsWhenOnlyKnownFreeSpaceIsAllowed) {
 	World world;
 	SearchPlannerConfig config;
-	config.space.unknown_is_free = false;
+	config.unknown_is_free = false;
 	AStarGlobalPlanner<LogOddsGridMap> planner(world.map, world.uav, kGoal, config);
 	ASSERT_TRUE(planner.prepare());
 	EXPECT_EQ(planner.plan(request_from(kStart)).status, PlanStatus::Failed);
@@ -156,18 +157,15 @@ TEST(RrtStarGlobalPlanner, PlansAroundTheWall) {
 	expect_clear(world.map.map(), path);
 }
 
-TEST(GridGraph, ChargesForUnknownVoxelsAndForClimbing) {
+TEST(GridMapSearchSpace, ChargesForUnknownVoxelsAndForClimbing) {
 	LogOddsGridMap map(1.0);
 	LogOddsUpdate update;
 	update.keyframe = true;
 	update.resolution = 1.0;
 	update.cells = {{.x = 1, .y = 0, .z = 0, .log_odds = -2.0f}};  // the only voxel seen free
 	map.apply(update);
-	SearchSpaceConfig config;
-	config.margin = 0.0;
-	config.unknown_cost = 3.0;
-	config.climb_cost = 0.5;
-	const GridGraph<LogOddsGridMap> graph(map, Eigen::AlignedBox3d(Eigen::Vector3d::Constant(-5), Eigen::Vector3d::Constant(5)), config);
+	const GridMapSearchSpace<LogOddsGridMap> graph(map, Eigen::AlignedBox3d(Eigen::Vector3d::Constant(-5), Eigen::Vector3d::Constant(5)), 0.0, true,
+	                                               StepCost{.unknown_cost = 3.0, .climb_cost = 0.5});
 
 	std::map<std::tuple<int, int, int>, double> costs;
 	graph.for_each_neighbor(Eigen::Vector3i::Zero(), [&](const Eigen::Vector3i& n, double cost) { costs[{n.x(), n.y(), n.z()}] = cost; });
@@ -177,6 +175,51 @@ TEST(GridGraph, ChargesForUnknownVoxelsAndForClimbing) {
 	EXPECT_DOUBLE_EQ((costs[{0, 0, 1}]), 3.0 + 0.5);               // unknown and up
 	EXPECT_DOUBLE_EQ((costs[{0, 0, -1}]), 3.0);                    // down is not charged
 	EXPECT_DOUBLE_EQ((costs[{1, 1, 1}]), 3.0 * std::sqrt(3.0) + 0.5);
+}
+
+/// A cost that only the test knows: a move costs its length, and ten times that east of x = 20.
+struct EastIsExpensive {
+	double operator()(const Eigen::Vector3i& from, const Eigen::Vector3i& to, Occupancy) const {
+		const double length = (to - from).cast<double>().norm();
+		return to.x() > 20 ? 10.0 * length : length;
+	}
+};
+
+TEST(GridMapSearchSpace, TakesTheCostOfAMoveFromTheCostFunction) {
+	const LogOddsGridMap map(1.0);
+	const Eigen::AlignedBox3d bounds(Eigen::Vector3d::Constant(-50), Eigen::Vector3d::Constant(50));
+	const GridMapSearchSpace<LogOddsGridMap, EastIsExpensive> space(map, bounds, 0.0, true);
+	const GridLineCost line(space);
+	std::map<std::tuple<int, int, int>, double> costs;
+	space.for_each_neighbor(Eigen::Vector3i(20, 0, 0), [&](const Eigen::Vector3i& n, double cost) { costs[{n.x() - 20, n.y(), n.z()}] = cost; });
+	EXPECT_DOUBLE_EQ((costs[{-1, 0, 0}]), 1.0);
+	EXPECT_DOUBLE_EQ((costs[{1, 0, 0}]), 10.0);
+	EXPECT_DOUBLE_EQ((costs[{1, 1, 0}]), 10.0 * std::sqrt(2.0));
+	/// a line is the cost function averaged over its voxels; with one value for all, that value
+	EXPECT_DOUBLE_EQ(*line({0, 0, 0}, {30, 0, 0}), 10.0 * 30.0);
+}
+
+TEST(AStarGlobalPlanner, GoesAroundTheWallWhenClimbingIsExpensive) {
+	const auto highest = [](const GlobalPath& path) {
+		double z = path.waypoints.front().z();
+		for (const Eigen::Vector3d& point : path.waypoints) z = std::max(z, point.z());
+		return z;
+	};
+	World over_world;
+	AStarGlobalPlanner<LogOddsGridMap> over(over_world.map, over_world.uav, kGoal);
+	ASSERT_TRUE(over.prepare());
+	const GlobalPath over_path = over.plan(request_from(kStart));
+	ASSERT_EQ(over_path.status, PlanStatus::Ok);
+
+	World around_world;
+	AStarGlobalPlanner<LogOddsGridMap> around(around_world.map, around_world.uav, kGoal, {}, {}, StepCost{.climb_cost = 5.0});
+	ASSERT_TRUE(around.prepare());
+	const GlobalPath around_path = around.plan(request_from(kStart));
+	ASSERT_EQ(around_path.status, PlanStatus::Ok);
+	expect_clear(around_world.map.map(), around_path);
+
+	EXPECT_GT(highest(over_path), 6.0);    // over the 6 m wall from 2 m
+	EXPECT_LT(highest(around_path), 3.0);  // stays near 2 m
 }
 
 TEST(SearchBounds, KeepsStartAndGoalInsideTheAltitudeLimits) {

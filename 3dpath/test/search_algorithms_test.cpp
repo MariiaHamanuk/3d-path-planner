@@ -53,16 +53,19 @@ struct WallGrid {
 			}
 		}
 	}
-	std::optional<double> segment_cost(const Node& a, const Node& b) const {
+};
+
+/// The price of a straight line on a WallGrid: its length, or nothing when a cell on it is blocked.
+struct WallGridLine {
+	std::optional<double> operator()(const WallGrid::Node& a, const WallGrid::Node& b) const {
 		const Eigen::Vector2d delta = (b - a).cast<double>();
 		const int samples = std::max(1, static_cast<int>(std::ceil(delta.norm() * 4.0)));
 		for (int i = 1; i <= samples; ++i) {
-			const Node cell = (a.cast<double>() + delta * (static_cast<double>(i) / samples)).array().round().cast<int>().matrix();
-			if (!is_free(cell)) return std::nullopt;
+			const WallGrid::Node cell = (a.cast<double>() + delta * (static_cast<double>(i) / samples)).array().round().cast<int>().matrix();
+			if (!WallGrid{}.is_free(cell)) return std::nullopt;
 		}
 		return delta.norm();
 	}
-	double straight_cost(const Node& a, const Node& b) const { return (b - a).cast<double>().norm(); }
 };
 
 /// Length of a path of grid cells.
@@ -167,7 +170,7 @@ TEST(RrtStar, FindsAShorterPathThanRrt) {
 }
 
 TEST(LazyThetaStar, GoesStraightWhenNothingIsInTheWay) {
-	const auto result = lazy_theta_star(WallGrid{}, WallGrid::Node(1, 16), WallGrid::Node(18, 19), EuclideanHeuristic{});
+	const auto result = lazy_theta_star(WallGrid{}, WallGrid::Node(1, 16), WallGrid::Node(18, 19), EuclideanHeuristic{}, WallGridLine{});
 	ASSERT_TRUE(result.found());
 	EXPECT_EQ(result.path, (std::vector<WallGrid::Node>{{1, 16}, {18, 19}}));
 	EXPECT_NEAR(result.cost, std::hypot(17.0, 3.0), 1e-9);
@@ -176,7 +179,7 @@ TEST(LazyThetaStar, GoesStraightWhenNothingIsInTheWay) {
 TEST(LazyThetaStar, FindsAShorterPathThanAStarAroundTheWall) {
 	const WallGrid grid;
 	const WallGrid::Node start(2, 2), goal(18, 2);
-	const auto theta = lazy_theta_star(grid, start, goal, EuclideanHeuristic{});
+	const auto theta = lazy_theta_star(grid, start, goal, EuclideanHeuristic{}, WallGridLine{});
 	const auto grid_path = a_star(grid, start, goal, EuclideanHeuristic{});
 	ASSERT_TRUE(theta.found());
 	EXPECT_EQ(theta.path.front(), start);
@@ -184,11 +187,11 @@ TEST(LazyThetaStar, FindsAShorterPathThanAStarAroundTheWall) {
 	EXPECT_LT(theta.cost, grid_path.cost);
 	EXPECT_LT(theta.path.size(), grid_path.path.size());
 	EXPECT_NEAR(theta.cost, cells_length(theta.path), 1e-9);
-	for (std::size_t i = 1; i < theta.path.size(); ++i) EXPECT_TRUE(grid.segment_cost(theta.path[i - 1], theta.path[i])) << "segment " << i;
+	for (std::size_t i = 1; i < theta.path.size(); ++i) EXPECT_TRUE(WallGridLine{}(theta.path[i - 1], theta.path[i])) << "segment " << i;
 }
 
 TEST(LazyThetaStar, ReportsNoPathToABlockedGoal) {
-	EXPECT_FALSE(lazy_theta_star(WallGrid{}, WallGrid::Node(2, 2), WallGrid::Node(10, 5), EuclideanHeuristic{}).found());
+	EXPECT_FALSE(lazy_theta_star(WallGrid{}, WallGrid::Node(2, 2), WallGrid::Node(10, 5), EuclideanHeuristic{}, WallGridLine{}).found());
 }
 
 TEST(RrtConnect, FindsAPathAroundTheWall) {

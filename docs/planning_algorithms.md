@@ -15,7 +15,7 @@ digraph layers {
   edge [fontname="Helvetica", fontsize=9, color="#555555"];
   thread [label="GlobalPlanningThread", shape=ellipse, fillcolor="#f1f1f1", color="#999999"];
   planner [label=<Planner<BR/><FONT POINT-SIZE="9" COLOR="#666666">AStarGlobalPlanner, LazyThetaStarGlobalPlanner, Rrt*GlobalPlanner</FONT>>];
-  adapter [label=<Map adapter<BR/><FONT POINT-SIZE="9" COLOR="#666666">GridGraph, OccupancySpace</FONT>>];
+  adapter [label=<Map adapter<BR/><FONT POINT-SIZE="9" COLOR="#666666">GridMapSearchSpace, OccupancySpace</FONT>>];
   algorithm [label=<Algorithm<BR/><FONT POINT-SIZE="9" COLOR="#666666">a_star, dijkstra, lazy_theta_star, rrt, rrt_connect, rrt_star</FONT>>];
   thread -> planner [label=" ReplanRequest  /  GlobalPath"];
   planner -> adapter [label=" map copy, search box, settings"];
@@ -26,7 +26,7 @@ digraph layers {
 | Layer | Files | Job |
 |---|---|---|
 | Planner | `planning/global/search_planners.hpp` | Talks to the system: takes a `path3d::ReplanRequest`, builds the search space on its map copy, runs the algorithm, and returns a `path3d::GlobalPath` (always: `Failed` when there is no path). |
-| Map adapter | `planning/utils/map_adapters.hpp` | Turns a map into what an algorithm can search: `path3d::GridGraph` (voxels and their 26 neighbors) for A*, `path3d::OccupancySpace` (points and segments in meters) for RRT and RRT*. Holds the safety rules: margin around the drone, search box, unknown space. |
+| Map adapter | `planning/utils/search_spaces.hpp` | Turns a map into what an algorithm can search: `path3d::GridMapSearchSpace` (voxels and their 26 neighbors) for A*, `path3d::GridLineCost` (`planning/utils/grid_line_cost.hpp`, the price of a straight line between two voxels, for Lazy Theta*), `path3d::OccupancySpace` (points and segments in meters) for RRT and RRT*. Holds the safety rules: margin around the drone, search box, unknown space. |
 | Algorithm | `planning/global/algorithms/a_star.hpp`, `lazy_theta_star.hpp`, `rrt.hpp`, `rrt_connect.hpp`, `rrt_star.hpp`, `heuristics.hpp` | Pure search. Constrained only by the concepts `path3d::SearchGraph` and `path3d::SamplingSpace`, so they can be tested on tiny made-up worlds. |
 
 ### The algorithms {#planning_algorithm_list}
@@ -55,19 +55,21 @@ Lazy Theta* uses Euclidean by default: its paths are not tied to the grid, so th
 
 ### From a map to a search space {#planning_adapters}
 
-The map (`path3d::LogOddsGridMap`) answers only "is this voxel Free, Occupied or Unknown". The adapters add what a planner for a real drone needs, configured with `path3d::SearchSpaceConfig`:
+The map (`path3d::LogOddsGridMap`) answers only "is this voxel Free, Occupied or Unknown". The search spaces add what a planner for a real drone needs. Two settings are fields of `path3d::SearchPlannerConfig` (and of `path3d::TrajectoryLocalPlannerConfig`) and go to the space as constructor arguments:
 
 | Setting | Default | Meaning |
 |---|---|---|
 | `margin` | 0.5 m | Free space needed around the drone. A voxel (or point) is free only if the ball of this radius around it is. |
 | `unknown_is_free` | true | The map is built while flying, so most of it is Unknown. True plans through unknown space, and the local planner asks for a new path when it turns out blocked. False plans only through space seen free, which usually finds nothing at the start. |
-| `unknown_cost` | 1 | `GridGraph` only. A step into an Unknown voxel costs this many times its length, so A* prefers space it has seen. At least 1. |
-| `climb_cost` | 0 | `GridGraph` only. Every meter of climbing costs this many extra meters, because climbing takes more energy. With a high value A* flies around an obstacle instead of over it. At least 0. |
 
-Both costs apply to Lazy Theta* too: a straight line is charged `unknown_cost` for the share of its voxels that are Unknown, and `climb_cost` for its climb.
-| `check_step` | 0 | `OccupancySpace` only. RRT checks a segment point by point, this far apart. 0 picks half a voxel on a grid map, 0.1 m otherwise. |
+What a move between two voxels costs is not in the config. `path3d::GridMapSearchSpace` takes a cost function (`path3d::VoxelCost`, in `planning/utils/voxel_cost.hpp`): one function, `cost(from, to, occupancy)`, for the straight move from one voxel to another through voxels of that occupancy. The default, `path3d::StepCost`, is the length of the move with two penalties:
 
-The two costs keep every heuristic above admissible, because they only make steps more expensive.
+| `StepCost` field | Default | Meaning |
+|---|---|---|
+| `unknown_cost` | 1 | A move through Unknown voxels costs this many times its length, so A* prefers space it has seen. At least 1. |
+| `climb_cost` | 0 | Every voxel of climbing costs this many extra voxels of flight, because climbing takes more energy. With a high value A* flies around an obstacle instead of over it. At least 0. |
+
+The planners pass one on: `AStarGlobalPlanner<M, H, Cost>` and `LazyThetaStarGlobalPlanner<M, H, Cost>` take it as their last constructor argument. Lazy Theta* prices a straight line as the cost function averaged over the voxels along it, each with its own occupancy. Lazy Theta* takes the check and price of a straight line as an extra argument, `path3d::LineCost`; on a grid it is `path3d::GridLineCost`, which averages the cost function over the voxels along the line. Before a line is checked, Lazy Theta* prices it with the heuristic. A cost must never be below the straight distance between the voxels; then every heuristic above stays admissible, as it does with the two `StepCost` penalties, which only make moves more expensive.
 
 The planners add `path3d::SearchPlannerConfig`:
 

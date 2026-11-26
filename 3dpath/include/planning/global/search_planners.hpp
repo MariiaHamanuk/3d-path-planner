@@ -5,7 +5,8 @@
 #include "planning/global/algorithms/a_star.hpp"
 #include "planning/global/algorithms/heuristics.hpp"
 #include "planning/global/algorithms/lazy_theta_star.hpp"
-#include "planning/utils/map_adapters.hpp"
+#include "planning/utils/grid_line_cost.hpp"
+#include "planning/utils/search_spaces.hpp"
 #include "planning/global/algorithms/rrt.hpp"
 #include "planning/global/algorithms/rrt_connect.hpp"
 #include "planning/global/algorithms/rrt_star.hpp"
@@ -27,7 +28,8 @@ namespace path3d {
  * @brief Settings shared by the search-based global planners.
  */
 struct SearchPlannerConfig {
-	SearchSpaceConfig space;              ///< what counts as free (margin, unknown space)
+	double margin = 0.5;                  ///< free space the drone needs around its center, m: a point closer than this to an occupied voxel is not free
+	bool unknown_is_free = true;          ///< the map is built while flying, so most of it is Unknown: true plans through it (a blocked path makes the local planner ask for a new one)
 	double padding = 10.0;                ///< m added around start and goal to make the search box
 	double min_altitude = 1.0;            ///< lowest z of the search box, m (unless start or goal is lower)
 	double max_altitude = 30.0;           ///< highest z of the search box, m (unless start or goal is higher)
@@ -58,15 +60,13 @@ std::optional<Eigen::Vector3d> nearest_free_point(const Eigen::Vector3d& p, doub
 
 /// The start of a path from the drone at `p`: `p` itself if `is_free`, otherwise the nearest free
 /// point (nearest_free_point()) that the drone can fly to in a straight line without touching an
-/// occupied voxel - never one on the other side of a wall. `space` says what counts as passable
-/// for that line (its margin is not used).
+/// occupied voxel - never one on the other side of a wall. `unknown_is_free` says whether Unknown
+/// space is passable for that line.
 template <OccupancyMap M, std::predicate<const Eigen::Vector3d&> Free>
 std::optional<Eigen::Vector3d> reachable_start(const M& map, const Eigen::Vector3d& p, double radius, double step,
-                                               const SearchSpaceConfig& space, Free is_free) {
-	SearchSpaceConfig touching = space;
-	touching.margin = 0.0;
+                                               bool unknown_is_free, Free is_free) {
 	const Eigen::AlignedBox3d around(p.array() - (radius + 1.0), p.array() + (radius + 1.0));
-	const OccupancySpace<M> line(map, around, touching);
+	const OccupancySpace<M> line(map, around, 0.0, unknown_is_free);
 	const auto reachable = [&](const Eigen::Vector3d& q) {
 		/// the drone may itself be in a voxel the map calls occupied: then the line is checked from
 		/// where it first gets out
@@ -109,22 +109,24 @@ std::vector<Eigen::Vector3d> voxel_path_waypoints(const M& map, const std::vecto
  * @tparam M Map type; any GridMap that can be replicated (for example LogOddsGridMap).
  * @tparam H Heuristic on voxel indices. OctileHeuristic finds the shortest path with the fewest
  *   expansions; ZeroHeuristic makes it Dijkstra.
+ * @tparam Cost What a move between two voxels costs (see VoxelCost). The heuristic must not
+ *   overestimate it.
  */
-template <class M, class H = OctileHeuristic>
-    requires ReplicatedMap<M> && GridMap<M> && SearchHeuristic<H, Eigen::Vector3i>
+template <class M, class H = OctileHeuristic, class Cost = StepCost>
+    requires ReplicatedMap<M> && GridMap<M> && SearchHeuristic<H, Eigen::Vector3i> && VoxelCost<Cost>
 class AStarGlobalPlanner : public GlobalPlanner<M, ReplanRequest, GlobalPath> {
 public:
 	AStarGlobalPlanner(MapClient<M>& map, UavClient& uav, Eigen::Vector3d goal, SearchPlannerConfig config = {},
-	                   H heuristic = {})
-	    : GlobalPlanner<M, ReplanRequest, GlobalPath>(map, uav), m_goal(std::move(goal)), m_config(config), m_heuristic(heuristic) {}
+	                   H heuristic = {}, Cost cost = {})
+	    : GlobalPlanner<M, ReplanRequest, GlobalPath>(map, uav), m_goal(std::move(goal)), m_config(config), m_heuristic(heuristic), m_cost(cost) {}
 
 	GlobalPath plan(const ReplanRequest& request) override {
 		const M& map = this->m_map.map();
 		GlobalPath path;
 		path.stamp = map.stamp;
 
-		const GridGraph<M> graph(map, search_bounds(request.position, m_goal, m_config.padding, m_config.min_altitude, m_config.max_altitude), m_config.space);
-		const auto start = reachable_start(map, request.position, m_config.start_snap, map.resolution(), m_config.space,
+		const GridMapSearchSpace<M, Cost> graph(map, search_bounds(request.position, m_goal, m_config.padding, m_config.min_altitude, m_config.max_altitude), m_config.margin, m_config.unknown_is_free, m_cost);
+		const auto start = reachable_start(map, request.position, m_config.start_snap, map.resolution(), m_config.unknown_is_free,
 		                                   [&](const Eigen::Vector3d& p) { return graph.is_free(map.index_of(p)); });
 		if (!start) {
 			path.status = PlanStatus::Failed;
@@ -145,6 +147,7 @@ private:
 	Eigen::Vector3d m_goal;
 	SearchPlannerConfig m_config;
 	H m_heuristic;
+	Cost m_cost;
 };
 
 /**
@@ -156,27 +159,27 @@ private:
  * @tparam H Heuristic on voxel indices. It must not overestimate straight lines, so the default is
  *   EuclideanHeuristic (OctileHeuristic overestimates them).
  */
-template <class M, class H = EuclideanHeuristic>
-    requires ReplicatedMap<M> && GridMap<M> && SearchHeuristic<H, Eigen::Vector3i>
+template <class M, class H = EuclideanHeuristic, class Cost = StepCost>
+    requires ReplicatedMap<M> && GridMap<M> && SearchHeuristic<H, Eigen::Vector3i> && VoxelCost<Cost>
 class LazyThetaStarGlobalPlanner : public GlobalPlanner<M, ReplanRequest, GlobalPath> {
 public:
 	LazyThetaStarGlobalPlanner(MapClient<M>& map, UavClient& uav, Eigen::Vector3d goal, SearchPlannerConfig config = {},
-	                           H heuristic = {})
-	    : GlobalPlanner<M, ReplanRequest, GlobalPath>(map, uav), m_goal(std::move(goal)), m_config(config), m_heuristic(heuristic) {}
+	                           H heuristic = {}, Cost cost = {})
+	    : GlobalPlanner<M, ReplanRequest, GlobalPath>(map, uav), m_goal(std::move(goal)), m_config(config), m_heuristic(heuristic), m_cost(cost) {}
 
 	GlobalPath plan(const ReplanRequest& request) override {
 		const M& map = this->m_map.map();
 		GlobalPath path;
 		path.stamp = map.stamp;
 
-		const GridGraph<M> graph(map, search_bounds(request.position, m_goal, m_config.padding, m_config.min_altitude, m_config.max_altitude), m_config.space);
-		const auto start = reachable_start(map, request.position, m_config.start_snap, map.resolution(), m_config.space,
+		const GridMapSearchSpace<M, Cost> graph(map, search_bounds(request.position, m_goal, m_config.padding, m_config.min_altitude, m_config.max_altitude), m_config.margin, m_config.unknown_is_free, m_cost);
+		const auto start = reachable_start(map, request.position, m_config.start_snap, map.resolution(), m_config.unknown_is_free,
 		                                   [&](const Eigen::Vector3d& p) { return graph.is_free(map.index_of(p)); });
 		if (!start) {
 			path.status = PlanStatus::Failed;
 			return path;
 		}
-		const auto result = lazy_theta_star(graph, map.index_of(*start), map.index_of(m_goal), m_heuristic, m_config.max_expansions);
+		const auto result = lazy_theta_star(graph, map.index_of(*start), map.index_of(m_goal), m_heuristic, GridLineCost(graph), m_config.max_expansions);
 		if (!result.found()) {
 			path.status = PlanStatus::Failed;
 			return path;
@@ -191,6 +194,7 @@ private:
 	Eigen::Vector3d m_goal;
 	SearchPlannerConfig m_config;
 	H m_heuristic;
+	Cost m_cost;
 };
 
 /// Parameters of a sampling algorithm; the type picks the algorithm in SamplingGlobalPlanner.
@@ -220,10 +224,10 @@ public:
 		GlobalPath path;
 		path.stamp = map.stamp;
 
-		const OccupancySpace<M> space(map, search_bounds(request.position, m_goal, m_config.padding, m_config.min_altitude, m_config.max_altitude), m_config.space);
+		const OccupancySpace<M> space(map, search_bounds(request.position, m_goal, m_config.padding, m_config.min_altitude, m_config.max_altitude), m_config.margin, m_config.unknown_is_free);
 		P params = m_params;
 		params.seed += request.id;
-		const auto start = reachable_start(map, request.position, m_config.start_snap, m_config.start_snap / 8.0, m_config.space,
+		const auto start = reachable_start(map, request.position, m_config.start_snap, m_config.start_snap / 8.0, m_config.unknown_is_free,
 		                                   [&](const Eigen::Vector3d& p) { return space.is_free(p); });
 		if (!start) {
 			path.status = PlanStatus::Failed;

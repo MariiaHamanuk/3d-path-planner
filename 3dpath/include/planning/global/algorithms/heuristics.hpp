@@ -22,7 +22,7 @@ struct EuclideanHeuristic {
 /**
  * @brief Exact cost on an empty 26-connected grid with steps 1, sqrt(2) and sqrt(3): moves along
  * the space diagonal as long as all three axes differ, then along a face diagonal, then straight.
- * The tightest admissible heuristic for GridGraph.
+ * The tightest admissible heuristic for GridMapSearchSpace.
  */
 struct OctileHeuristic {
 	double operator()(const Eigen::Vector3i& a, const Eigen::Vector3i& b) const {
