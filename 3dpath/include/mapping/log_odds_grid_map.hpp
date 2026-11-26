@@ -43,6 +43,11 @@ struct LogOddsUpdate {
 class LogOddsGridMap : public MapView {
 public:
 	using Update = LogOddsUpdate;
+	using Index = Eigen::Vector3i;
+	/// Hashes an index as the voxel storage does: through its packed key.
+	struct IndexHash {
+		std::size_t operator()(const Index& index) const { return KeyHash{}(key_of(index)); }
+	};
 
 	/// Log-odds above this count as occupied, at or below it as free.
 	static constexpr float kOccupiedThreshold = 0.0f;
@@ -79,6 +84,23 @@ public:
 		return it->second > kOccupiedThreshold ? Occupancy::Occupied : Occupancy::Free;
 	}
 	Occupancy occupancy(const Eigen::Vector3d& p) const { return occupancy_at(index_of(p)); }
+
+	/// Whether every voxel within `radius_voxels` voxels of `index` (a ball) may be flown through.
+	bool is_clear_at(const Eigen::Vector3i& index, int radius_voxels, bool unknown_is_free) const {
+		for (int dx = -radius_voxels; dx <= radius_voxels; ++dx) {
+			for (int dy = -radius_voxels; dy <= radius_voxels; ++dy) {
+				for (int dz = -radius_voxels; dz <= radius_voxels; ++dz) {
+					if (dx * dx + dy * dy + dz * dz > radius_voxels * radius_voxels) continue;
+					if (!is_passable(occupancy_at(index + Eigen::Vector3i(dx, dy, dz)), unknown_is_free)) return false;
+				}
+			}
+		}
+		return true;
+	}
+	/// The same for a ball of `radius` m around `p`: the radius is rounded up to whole voxels.
+	bool is_clear(const Eigen::Vector3d& p, double radius, bool unknown_is_free) const {
+		return is_clear_at(index_of(p), static_cast<int>(std::ceil(radius / m_resolution)), unknown_is_free);
+	}
 
 	/// 0 (the unknown prior) for a voxel never observed.
 	float log_odds_at(const Eigen::Vector3i& index) const { return log_odds(key_of(index)); }

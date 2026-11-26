@@ -1,13 +1,28 @@
+#include "mapping/grid_topology.hpp"
 #include "mapping/log_odds_mapper.hpp"
 
 #include <gtest/gtest.h>
+
+#include <set>
+#include <tuple>
 
 using namespace path3d;
 
 static_assert(ReplicatedMap<LogOddsGridMap>);
 static_assert(GridMap<LogOddsGridMap>);
+static_assert(ClearanceMap<LogOddsGridMap>);
+static_assert(GridClearanceMap<LogOddsGridMap>);
 
 namespace {
+
+/// A map with no clearance query of its own: one occupied voxel at (5, 0, 0), the rest Free.
+class PlainMap : public MapView {
+public:
+	Occupancy occupancy(const Eigen::Vector3d& p) const {
+		return p.x() >= 5.0 && p.x() < 6.0 && p.y() >= 0.0 && p.y() < 1.0 && p.z() >= 0.0 && p.z() < 1.0 ? Occupancy::Occupied : Occupancy::Free;
+	}
+};
+static_assert(OccupancyMap<PlainMap> && !ClearanceMap<PlainMap>);
 
 /// A drone at the origin looking along +x at a flat wall `distance` m away.
 SensorFrame wall_frame(double distance, double stamp = 1.0) {
@@ -151,4 +166,38 @@ TEST(LogOddsMapper, KeyframeOfAnEmptyMapExists) {
 	const auto update = mapper.make_update(true);
 	ASSERT_TRUE(update.has_value());
 	EXPECT_TRUE(update->cells.empty());
+}
+
+TEST(Clearance, GridMapChecksTheBallOfVoxels) {
+	LogOddsGridMap map(1.0);
+	LogOddsUpdate update;
+	update.keyframe = true;
+	update.resolution = 1.0;
+	update.cells = {{.x = 5, .y = 0, .z = 0, .log_odds = 2.0f}, {.x = 0, .y = 0, .z = 0, .log_odds = -2.0f}};
+	map.apply(update);
+	EXPECT_TRUE(map.is_clear_at({0, 0, 0}, 0, false));
+	EXPECT_FALSE(map.is_clear_at({0, 0, 0}, 1, false));  // the neighbors were never seen
+	EXPECT_TRUE(map.is_clear_at({0, 0, 0}, 1, true));
+	EXPECT_FALSE(map.is_clear_at({4, 0, 0}, 1, true));  // the occupied voxel is in the ball
+	EXPECT_TRUE(map.is_clear_at({3, 0, 0}, 1, true));
+	/// the free function takes the map's own query, and rounds the radius up to voxels
+	EXPECT_EQ(is_clear(map, Eigen::Vector3d(4.5, 0.5, 0.5), 0.5, true), map.is_clear(Eigen::Vector3d(4.5, 0.5, 0.5), 0.5, true));
+	EXPECT_FALSE(is_clear(map, Eigen::Vector3d(4.5, 0.5, 0.5), 0.5, true));
+}
+
+TEST(Clearance, AnyOtherMapIsProbedOnTheAxes) {
+	const PlainMap map;
+	EXPECT_TRUE(is_clear(map, Eigen::Vector3d(0.5, 0.5, 0.5), 1.0, false));
+	EXPECT_FALSE(is_clear(map, Eigen::Vector3d(4.5, 0.5, 0.5), 1.0, false));  // +x probe lands in the voxel
+	EXPECT_TRUE(is_clear(map, Eigen::Vector3d(3.5, 0.5, 0.5), 1.0, false));
+}
+
+TEST(GridTopology, HasTwentySixDistinctNeighbors) {
+	std::set<std::tuple<int, int, int>> offsets;
+	for (const GridStep& step : grid_steps()) {
+		offsets.insert({step.offset.x(), step.offset.y(), step.offset.z()});
+		EXPECT_DOUBLE_EQ(step.length, step.offset.cast<double>().norm());
+	}
+	EXPECT_EQ(offsets.size(), 26u);
+	EXPECT_EQ(offsets.count({0, 0, 0}), 0u);
 }
