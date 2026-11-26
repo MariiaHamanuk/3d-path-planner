@@ -35,30 +35,6 @@ struct SearchPlannerConfig {
 	double start_snap = 2.0;              ///< m; a start that is not free moves to the nearest free point this close that it can reach in a straight line
 };
 
-/**
- * @brief Numbers about the last plan, for comparing planners.
- */
-struct PlanStats {
-	bool found = false;
-	double length = 0.0;       ///< length of the waypoint polyline, m
-	double climb = 0.0;        ///< sum of all the climbs along the path, m; 0 for a path at one height
-	std::size_t explored = 0;  ///< A*: expanded voxels; RRT, RRT*: tree nodes
-};
-
-/// Length of a polyline, m.
-inline double polyline_length(const std::vector<Eigen::Vector3d>& points) {
-	double length = 0.0;
-	for (std::size_t i = 1; i < points.size(); ++i) length += (points[i] - points[i - 1]).norm();
-	return length;
-}
-
-/// Sum of the climbs along a polyline (descents not counted), m.
-inline double polyline_climb(const std::vector<Eigen::Vector3d>& points) {
-	double climb = 0.0;
-	for (std::size_t i = 1; i < points.size(); ++i) climb += std::max(0.0, points[i].z() - points[i - 1].z());
-	return climb;
-}
-
 /// The free point nearest to `p` on a grid of `step` within `radius`; `p` itself if it is free.
 template <std::predicate<const Eigen::Vector3d&> Free>
 std::optional<Eigen::Vector3d> nearest_free_point(const Eigen::Vector3d& p, double radius, double step, Free is_free) {
@@ -151,12 +127,10 @@ public:
 		const auto start = reachable_start(map, request.position, m_config.start_snap, map.resolution(), m_config.space,
 		                                   [&](const Eigen::Vector3d& p) { return graph.is_free(map.index_of(p)); });
 		if (!start) {
-			m_stats = {};
 			path.status = PlanStatus::Failed;
 			return path;
 		}
 		const auto result = a_star(graph, map.index_of(*start), map.index_of(m_goal), m_heuristic, m_config.max_expansions);
-		m_stats = {.found = result.found(), .explored = result.expanded};
 		if (!result.found()) {
 			path.status = PlanStatus::Failed;
 			return path;
@@ -164,19 +138,13 @@ public:
 
 		path.waypoints = voxel_path_waypoints(map, result.path, *start, m_goal);
 		if (*start != request.position) path.waypoints.insert(path.waypoints.begin(), request.position);
-		m_stats.length = polyline_length(path.waypoints);
-		m_stats.climb = polyline_climb(path.waypoints);
 		return path;
 	}
-
-	/// Numbers about the last plan() call.
-	const PlanStats& last_stats() const { return m_stats; }
 
 private:
 	Eigen::Vector3d m_goal;
 	SearchPlannerConfig m_config;
 	H m_heuristic;
-	PlanStats m_stats;
 };
 
 /**
@@ -205,12 +173,10 @@ public:
 		const auto start = reachable_start(map, request.position, m_config.start_snap, map.resolution(), m_config.space,
 		                                   [&](const Eigen::Vector3d& p) { return graph.is_free(map.index_of(p)); });
 		if (!start) {
-			m_stats = {};
 			path.status = PlanStatus::Failed;
 			return path;
 		}
 		const auto result = lazy_theta_star(graph, map.index_of(*start), map.index_of(m_goal), m_heuristic, m_config.max_expansions);
-		m_stats = {.found = result.found(), .explored = result.expanded};
 		if (!result.found()) {
 			path.status = PlanStatus::Failed;
 			return path;
@@ -218,19 +184,13 @@ public:
 
 		path.waypoints = voxel_path_waypoints(map, result.path, *start, m_goal);
 		if (*start != request.position) path.waypoints.insert(path.waypoints.begin(), request.position);
-		m_stats.length = polyline_length(path.waypoints);
-		m_stats.climb = polyline_climb(path.waypoints);
 		return path;
 	}
-
-	/// Numbers about the last plan() call.
-	const PlanStats& last_stats() const { return m_stats; }
 
 private:
 	Eigen::Vector3d m_goal;
 	SearchPlannerConfig m_config;
 	H m_heuristic;
-	PlanStats m_stats;
 };
 
 /// Parameters of a sampling algorithm; the type picks the algorithm in SamplingGlobalPlanner.
@@ -266,7 +226,6 @@ public:
 		const auto start = reachable_start(map, request.position, m_config.start_snap, m_config.start_snap / 8.0, m_config.space,
 		                                   [&](const Eigen::Vector3d& p) { return space.is_free(p); });
 		if (!start) {
-			m_stats = {};
 			path.status = PlanStatus::Failed;
 			return path;
 		}
@@ -278,26 +237,19 @@ public:
 		} else {
 			result = rrt<3>(space, *start, m_goal, params);
 		}
-		m_stats = {.found = result.found(), .explored = result.tree_size};
 		if (!result.found()) {
 			path.status = PlanStatus::Failed;
 			return path;
 		}
 		path.waypoints = std::move(result.path);
 		if (*start != request.position) path.waypoints.insert(path.waypoints.begin(), request.position);
-		m_stats.length = polyline_length(path.waypoints);
-		m_stats.climb = polyline_climb(path.waypoints);
 		return path;
 	}
-
-	/// Numbers about the last plan() call.
-	const PlanStats& last_stats() const { return m_stats; }
 
 private:
 	Eigen::Vector3d m_goal;
 	SearchPlannerConfig m_config;
 	P m_params;
-	PlanStats m_stats;
 };
 
 /// RRT as a global planner: finds a path fast, but a long and crooked one.

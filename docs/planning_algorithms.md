@@ -95,7 +95,7 @@ RrtConnectGlobalPlanner<Map> connect(map, uav, goal);                      // RR
 RrtStarGlobalPlanner<Map> rrt_star(map, uav, goal, config, RrtStarParams{.max_iterations = 3000});
 @endcode
 
-Each planner is a `path3d::GlobalPlanner`, so it plugs into `path3d::GlobalPlanningThread` exactly like `path3d::LineGlobalPlanner` in the @ref tutorial_line. Each one also reports `last_stats()` (`path3d::PlanStats`): whether it found a path, its length and climb, and how much it explored.
+Each planner is a `path3d::GlobalPlanner`, so it plugs into `path3d::GlobalPlanningThread` exactly like `path3d::LineGlobalPlanner` in the @ref tutorial_line.
 
 **A new map** works with these planners without changes when it satisfies the concepts of `mapping/map_view.hpp`: `path3d::ReplicatedMap` and `path3d::GridMap` for A*, `path3d::ReplicatedMap` and `path3d::OccupancyMap` for RRT and RRT*.
 

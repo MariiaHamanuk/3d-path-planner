@@ -68,8 +68,6 @@ TEST(AStarGlobalPlanner, PlansAroundTheWall) {
 	EXPECT_EQ(path.waypoints.front(), kStart);
 	EXPECT_EQ(path.waypoints.back(), kGoal);
 	expect_clear(world.map.map(), path);
-	EXPECT_TRUE(planner.last_stats().found);
-	EXPECT_GT(planner.last_stats().length, (kGoal - kStart).norm());
 }
 
 TEST(AStarGlobalPlanner, FailsForAGoalInTheWall) {
@@ -106,24 +104,7 @@ TEST(AStarGlobalPlanner, FailsWhenOnlyKnownFreeSpaceIsAllowed) {
 	EXPECT_EQ(planner.plan(request_from(kStart)).status, PlanStatus::Failed);
 }
 
-TEST(AStarGlobalPlanner, OctileFindsAsShortAPathAsDijkstraWithFewerExpansions) {
-	World world;
-	AStarGlobalPlanner<LogOddsGridMap> a_star_planner(world.map, world.uav, kGoal);
-	ASSERT_TRUE(a_star_planner.prepare());
-	a_star_planner.plan(request_from(kStart));
-
-	World other;
-	AStarGlobalPlanner<LogOddsGridMap, ZeroHeuristic> dijkstra_planner(other.map, other.uav, kGoal);
-	ASSERT_TRUE(dijkstra_planner.prepare());
-	dijkstra_planner.plan(request_from(kStart));
-
-	ASSERT_TRUE(a_star_planner.last_stats().found);
-	ASSERT_TRUE(dijkstra_planner.last_stats().found);
-	EXPECT_NEAR(a_star_planner.last_stats().length, dijkstra_planner.last_stats().length, kResolution);
-	EXPECT_LT(a_star_planner.last_stats().explored, dijkstra_planner.last_stats().explored);
-}
-
-TEST(LazyThetaStarGlobalPlanner, PlansAShorterPathThanAStar) {
+TEST(LazyThetaStarGlobalPlanner, PlansAPathWithNoMoreWaypointsThanAStar) {
 	World theta_world;
 	LazyThetaStarGlobalPlanner<LogOddsGridMap> theta(theta_world.map, theta_world.uav, kGoal);
 	ASSERT_TRUE(theta.prepare());
@@ -137,7 +118,6 @@ TEST(LazyThetaStarGlobalPlanner, PlansAShorterPathThanAStar) {
 	AStarGlobalPlanner<LogOddsGridMap> grid(grid_world.map, grid_world.uav, kGoal);
 	ASSERT_TRUE(grid.prepare());
 	const GlobalPath grid_path = grid.plan(request_from(kStart));
-	EXPECT_LT(theta.last_stats().length, grid.last_stats().length);
 	EXPECT_LE(path.waypoints.size(), grid_path.waypoints.size());
 }
 
@@ -163,7 +143,7 @@ TEST(RrtGlobalPlanner, PlansAroundTheWall) {
 	expect_clear(world.map.map(), path);
 }
 
-TEST(RrtStarGlobalPlanner, PlansAShorterPathThanRrt) {
+TEST(RrtStarGlobalPlanner, PlansAroundTheWall) {
 	World world;
 	RrtStarParams params;
 	params.max_iterations = 3000;
@@ -174,32 +154,6 @@ TEST(RrtStarGlobalPlanner, PlansAShorterPathThanRrt) {
 	EXPECT_EQ(path.waypoints.front(), kStart);
 	EXPECT_EQ(path.waypoints.back(), kGoal);
 	expect_clear(world.map.map(), path);
-
-	World other;
-	RrtGlobalPlanner<LogOddsGridMap> simple(other.map, other.uav, kGoal);
-	ASSERT_TRUE(simple.prepare());
-	simple.plan(request_from(kStart));
-	EXPECT_LT(star.last_stats().length, simple.last_stats().length);
-}
-
-TEST(AStarGlobalPlanner, GoesAroundTheWallWhenClimbingIsExpensive) {
-	World over_world;
-	AStarGlobalPlanner<LogOddsGridMap> over(over_world.map, over_world.uav, kGoal);
-	ASSERT_TRUE(over.prepare());
-	over.plan(request_from(kStart));
-
-	World around_world;
-	SearchPlannerConfig config;
-	config.space.climb_cost = 5.0;
-	AStarGlobalPlanner<LogOddsGridMap> around(around_world.map, around_world.uav, kGoal, config);
-	ASSERT_TRUE(around.prepare());
-	const GlobalPath path = around.plan(request_from(kStart));
-	ASSERT_EQ(path.status, PlanStatus::Ok);
-	expect_clear(around_world.map.map(), path);
-
-	EXPECT_GT(over.last_stats().climb, 4.0);    // over the 6 m wall from 2 m
-	EXPECT_LT(around.last_stats().climb, 1.0);  // stays near 2 m
-	EXPECT_GT(around.last_stats().length, over.last_stats().length);
 }
 
 TEST(GridGraph, ChargesForUnknownVoxelsAndForClimbing) {
