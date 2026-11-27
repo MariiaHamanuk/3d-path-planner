@@ -5,8 +5,9 @@
 #include "planning/global/algorithms/a_star.hpp"
 #include "planning/global/algorithms/heuristics.hpp"
 #include "planning/global/algorithms/lazy_theta_star.hpp"
-#include "planning/utils/grid_line_cost.hpp"
-#include "planning/utils/search_spaces.hpp"
+#include "planning/search_spaces/continuous_search_space.hpp"
+#include "planning/costs/grid_line_of_sight_cost.hpp"
+#include "planning/search_spaces/grid_map_search_space.hpp"
 #include "planning/global/algorithms/rrt.hpp"
 #include "planning/global/algorithms/rrt_connect.hpp"
 #include "planning/global/algorithms/rrt_star.hpp"
@@ -66,7 +67,7 @@ template <OccupancyMap M, std::predicate<const Eigen::Vector3d&> Free>
 std::optional<Eigen::Vector3d> reachable_start(const M& map, const Eigen::Vector3d& p, double radius, double step,
                                                bool unknown_is_free, Free is_free) {
 	const Eigen::AlignedBox3d around(p.array() - (radius + 1.0), p.array() + (radius + 1.0));
-	const OccupancySpace<M> line(map, around, 0.0, unknown_is_free);
+	const ContinuousSearchSpace<M> line(map, around, 0.0, unknown_is_free);
 	const auto reachable = [&](const Eigen::Vector3d& q) {
 		/// the drone may itself be in a voxel the map calls occupied: then the line is checked from
 		/// where it first gets out
@@ -109,11 +110,11 @@ std::vector<Eigen::Vector3d> voxel_path_waypoints(const M& map, const std::vecto
  * @tparam M Map type; any GridMap that can be replicated (for example LogOddsGridMap).
  * @tparam H Heuristic on voxel indices. OctileHeuristic finds the shortest path with the fewest
  *   expansions; ZeroHeuristic makes it Dijkstra.
- * @tparam Cost What a move between two voxels costs (see VoxelCost). The heuristic must not
+ * @tparam Cost What a move between two voxels costs (see MoveCost). The heuristic must not
  *   overestimate it.
  */
-template <class M, class H = OctileHeuristic, class Cost = StepCost>
-    requires ReplicatedMap<M> && GridMap<M> && SearchHeuristic<H, Eigen::Vector3i> && VoxelCost<Cost>
+template <class M, class H = OctileHeuristic, class Cost = LengthCost>
+    requires ReplicatedMap<M> && GridMap<M> && SearchHeuristic<H, Eigen::Vector3i> && MoveCost<Cost>
 class AStarGlobalPlanner : public GlobalPlanner<M, ReplanRequest, GlobalPath> {
 public:
 	AStarGlobalPlanner(MapClient<M>& map, UavClient& uav, Eigen::Vector3d goal, SearchPlannerConfig config = {},
@@ -159,8 +160,8 @@ private:
  * @tparam H Heuristic on voxel indices. It must not overestimate straight lines, so the default is
  *   EuclideanHeuristic (OctileHeuristic overestimates them).
  */
-template <class M, class H = EuclideanHeuristic, class Cost = StepCost>
-    requires ReplicatedMap<M> && GridMap<M> && SearchHeuristic<H, Eigen::Vector3i> && VoxelCost<Cost>
+template <class M, class H = EuclideanHeuristic, class Cost = LengthCost>
+    requires ReplicatedMap<M> && GridMap<M> && SearchHeuristic<H, Eigen::Vector3i> && MoveCost<Cost>
 class LazyThetaStarGlobalPlanner : public GlobalPlanner<M, ReplanRequest, GlobalPath> {
 public:
 	LazyThetaStarGlobalPlanner(MapClient<M>& map, UavClient& uav, Eigen::Vector3d goal, SearchPlannerConfig config = {},
@@ -179,7 +180,7 @@ public:
 			path.status = PlanStatus::Failed;
 			return path;
 		}
-		const auto result = lazy_theta_star(graph, map.index_of(*start), map.index_of(m_goal), m_heuristic, GridLineCost(graph), m_config.max_expansions);
+		const auto result = lazy_theta_star(graph, map.index_of(*start), map.index_of(m_goal), m_heuristic, GridLineOfSightCost(graph), m_config.max_expansions);
 		if (!result.found()) {
 			path.status = PlanStatus::Failed;
 			return path;
@@ -224,7 +225,7 @@ public:
 		GlobalPath path;
 		path.stamp = map.stamp;
 
-		const OccupancySpace<M> space(map, search_bounds(request.position, m_goal, m_config.padding, m_config.min_altitude, m_config.max_altitude), m_config.margin, m_config.unknown_is_free);
+		const ContinuousSearchSpace<M> space(map, search_bounds(request.position, m_goal, m_config.padding, m_config.min_altitude, m_config.max_altitude), m_config.margin, m_config.unknown_is_free);
 		P params = m_params;
 		params.seed += request.id;
 		const auto start = reachable_start(map, request.position, m_config.start_snap, m_config.start_snap / 8.0, m_config.unknown_is_free,

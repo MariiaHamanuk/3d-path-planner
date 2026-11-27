@@ -5,12 +5,15 @@
 
 #include <cmath>
 #include <map>
+#include <set>
 #include <tuple>
 
 using namespace path3d;
 
 static_assert(SearchGraph<GridMapSearchSpace<LogOddsGridMap>>);
-static_assert(LineCost<GridLineCost<LogOddsGridMap, StepCost>, Eigen::Vector3i>);
+static_assert(std::same_as<GridMapSearchSpace<LogOddsGridMap>::NodeHash, LogOddsGridMap::IndexHash>);  // the map's own hash
+static_assert(std::same_as<IndexHashOf<int>::type, VoxelHash>);                                         // a map without one
+static_assert(LineCost<GridLineOfSightCost<LogOddsGridMap, LengthCost>, Eigen::Vector3i>);
 
 namespace {
 
@@ -48,7 +51,7 @@ ReplanRequest request_from(const Eigen::Vector3d& position, std::uint64_t id = 1
 
 /// Every segment of the path keeps away from occupied voxels.
 void expect_clear(const LogOddsGridMap& map, const GlobalPath& path) {
-	const OccupancySpace<LogOddsGridMap> space(map, Eigen::AlignedBox3d(Eigen::Vector3d::Constant(-100), Eigen::Vector3d::Constant(100)), 0.0, true);
+	const ContinuousSearchSpace<LogOddsGridMap> space(map, Eigen::AlignedBox3d(Eigen::Vector3d::Constant(-100), Eigen::Vector3d::Constant(100)), 0.0, true);
 	for (std::size_t i = 1; i < path.waypoints.size(); ++i) {
 		EXPECT_TRUE(space.segment_free(path.waypoints[i - 1], path.waypoints[i])) << "segment " << i;
 	}
@@ -165,7 +168,7 @@ TEST(GridMapSearchSpace, ChargesForUnknownVoxelsAndForClimbing) {
 	update.cells = {{.x = 1, .y = 0, .z = 0, .log_odds = -2.0f}};  // the only voxel seen free
 	map.apply(update);
 	const GridMapSearchSpace<LogOddsGridMap> graph(map, Eigen::AlignedBox3d(Eigen::Vector3d::Constant(-5), Eigen::Vector3d::Constant(5)), 0.0, true,
-	                                               StepCost{.unknown_cost = 3.0, .climb_cost = 0.5});
+	                                               LengthCost{.unknown_cost = 3.0, .climb_cost = 0.5});
 
 	std::map<std::tuple<int, int, int>, double> costs;
 	graph.for_each_neighbor(Eigen::Vector3i::Zero(), [&](const Eigen::Vector3i& n, double cost) { costs[{n.x(), n.y(), n.z()}] = cost; });
@@ -189,7 +192,7 @@ TEST(GridMapSearchSpace, TakesTheCostOfAMoveFromTheCostFunction) {
 	const LogOddsGridMap map(1.0);
 	const Eigen::AlignedBox3d bounds(Eigen::Vector3d::Constant(-50), Eigen::Vector3d::Constant(50));
 	const GridMapSearchSpace<LogOddsGridMap, EastIsExpensive> space(map, bounds, 0.0, true);
-	const GridLineCost line(space);
+	const GridLineOfSightCost line(space);
 	std::map<std::tuple<int, int, int>, double> costs;
 	space.for_each_neighbor(Eigen::Vector3i(20, 0, 0), [&](const Eigen::Vector3i& n, double cost) { costs[{n.x() - 20, n.y(), n.z()}] = cost; });
 	EXPECT_DOUBLE_EQ((costs[{-1, 0, 0}]), 1.0);
@@ -212,7 +215,7 @@ TEST(AStarGlobalPlanner, GoesAroundTheWallWhenClimbingIsExpensive) {
 	ASSERT_EQ(over_path.status, PlanStatus::Ok);
 
 	World around_world;
-	AStarGlobalPlanner<LogOddsGridMap> around(around_world.map, around_world.uav, kGoal, {}, {}, StepCost{.climb_cost = 5.0});
+	AStarGlobalPlanner<LogOddsGridMap> around(around_world.map, around_world.uav, kGoal, {}, {}, LengthCost{.climb_cost = 5.0});
 	ASSERT_TRUE(around.prepare());
 	const GlobalPath around_path = around.plan(request_from(kStart));
 	ASSERT_EQ(around_path.status, PlanStatus::Ok);
@@ -220,6 +223,34 @@ TEST(AStarGlobalPlanner, GoesAroundTheWallWhenClimbingIsExpensive) {
 
 	EXPECT_GT(highest(over_path), 6.0);    // over the 6 m wall from 2 m
 	EXPECT_LT(highest(around_path), 3.0);  // stays near 2 m
+}
+
+TEST(Passability, PlannerDecidesWhetherUnknownMayBeFlownThrough) {
+	LogOddsGridMap map(1.0);
+	LogOddsUpdate update;
+	update.keyframe = true;
+	update.resolution = 1.0;
+	update.cells = {{.x = 5, .y = 0, .z = 0, .log_odds = 2.0f}, {.x = 0, .y = 0, .z = 0, .log_odds = -2.0f}};
+	map.apply(update);
+	EXPECT_TRUE(is_clear_at(map, {0, 0, 0}, 0, false));
+	EXPECT_FALSE(is_clear_at(map, {0, 0, 0}, 1, false));  // the neighbors were never seen
+	EXPECT_TRUE(is_clear_at(map, {0, 0, 0}, 1, true));
+	EXPECT_FALSE(is_clear_at(map, {4, 0, 0}, 1, true));   // the occupied voxel is in the ball
+	EXPECT_TRUE(is_clear_at(map, {3, 0, 0}, 1, true));
+	EXPECT_FALSE(is_clear(map, Eigen::Vector3d(4.5, 0.5, 0.5), 0.5, true));
+	EXPECT_TRUE(is_passable(Occupancy::Unknown, true));
+	EXPECT_FALSE(is_passable(Occupancy::Unknown, false));
+	EXPECT_FALSE(is_passable(Occupancy::Occupied, true));
+}
+
+TEST(GridMapSearchSpace, HasTwentySixDistinctNeighbors) {
+	std::set<std::tuple<int, int, int>> offsets;
+	for (const GridStep& step : grid_steps()) {
+		offsets.insert({step.offset.x(), step.offset.y(), step.offset.z()});
+		EXPECT_DOUBLE_EQ(step.length, step.offset.cast<double>().norm());
+	}
+	EXPECT_EQ(offsets.size(), 26u);
+	EXPECT_EQ(offsets.count({0, 0, 0}), 0u);
 }
 
 TEST(SearchBounds, KeepsStartAndGoalInsideTheAltitudeLimits) {

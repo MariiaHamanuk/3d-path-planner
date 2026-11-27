@@ -1,13 +1,15 @@
 #pragma once
 
-#include "mapping/grid_topology.hpp"
 #include "mapping/map_view.hpp"
-#include "planning/utils/voxel_cost.hpp"
+#include "planning/search_spaces/passability.hpp"
+#include "planning/costs/length_cost.hpp"
+#include "planning/costs/move_cost.hpp"
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -16,6 +18,56 @@
 #include <unordered_map>
 
 namespace path3d {
+
+/// A step to a neighboring voxel and its length in voxels (1, sqrt(2) or sqrt(3)). Which voxels
+/// count as neighbors is the search's choice: GridMapSearchSpace uses the 26 around a voxel.
+struct GridStep {
+	Eigen::Vector3i offset;
+	double length;
+};
+
+/// The 26 steps from a voxel to the voxels around it.
+inline const std::array<GridStep, 26>& grid_steps() {
+	static const std::array<GridStep, 26> steps = [] {
+		std::array<GridStep, 26> result{};
+		std::size_t count = 0;
+		for (int dx = -1; dx <= 1; ++dx) {
+			for (int dy = -1; dy <= 1; ++dy) {
+				for (int dz = -1; dz <= 1; ++dz) {
+					if (dx == 0 && dy == 0 && dz == 0) continue;
+					result[count++] = {Eigen::Vector3i(dx, dy, dz), std::sqrt(static_cast<double>(dx * dx + dy * dy + dz * dz))};
+				}
+			}
+		}
+		return result;
+	}();
+	return steps;
+}
+
+/// General hash of a voxel index, for maps that bring none of their own.
+struct VoxelHash {
+	std::size_t operator()(const Eigen::Vector3i& voxel) const {
+		std::uint64_t key = static_cast<std::uint32_t>(voxel.x());
+		key = key * 0x9e3779b97f4a7c15ULL ^ static_cast<std::uint32_t>(voxel.y());
+		key = key * 0x9e3779b97f4a7c15ULL ^ static_cast<std::uint32_t>(voxel.z());
+		key ^= key >> 33;
+		key *= 0xff51afd7ed558ccdULL;
+		key ^= key >> 33;
+		return static_cast<std::size_t>(key);
+	}
+};
+
+/// The hash a search keeps voxels in a hash map with: the map's own IndexHash if it has one (it
+/// knows its storage), otherwise VoxelHash. A map is not required to have one.
+template <class M>
+struct IndexHashOf {
+	using type = VoxelHash;
+};
+template <class M>
+    requires requires { typename M::IndexHash; }
+struct IndexHashOf<M> {
+	using type = typename M::IndexHash;
+};
 
 /**
  * @brief The box a search may use: the box around start and goal grown by `padding`, cut to
@@ -35,19 +87,19 @@ inline Eigen::AlignedBox3d search_bounds(const Eigen::Vector3d& start, const Eig
 
 /**
  * @brief A GridMap seen as a graph for a_star(): a node is a voxel index, its neighbors are the 26
- * voxels around it. What a step costs is up to `Cost` (a VoxelCost; StepCost by default).
+ * voxels around it. What a step costs is up to `Cost` (a MoveCost; LengthCost by default).
  *
- * The price of a straight line between two voxels, which lazy_theta_star() needs, is GridLineCost.
+ * The price of a straight line between two voxels, which lazy_theta_star() needs, is GridLineOfSightCost.
  *
  * Only voxels inside `bounds` are nodes, so a search on an unbounded map ends. The free test of
  * a voxel checks a ball of `margin` around it and is cached, because A* asks about the same voxel
  * from each of its neighbors. Keep the graph for one search only: it holds a reference to the map.
  */
-template <GridMap M, VoxelCost Cost = StepCost>
+template <GridMap M, MoveCost Cost = LengthCost>
 class GridMapSearchSpace {
 public:
 	using Node = typename M::Index;
-	using NodeHash = typename M::IndexHash;
+	using NodeHash = typename IndexHashOf<M>::type;
 
 	GridMapSearchSpace(const M& map, const Eigen::AlignedBox3d& bounds, double margin, bool unknown_is_free, Cost cost = {})
 	    : m_map(map),
@@ -86,47 +138,6 @@ private:
 	bool m_unknown_is_free;
 	Cost m_cost;
 	mutable std::unordered_map<Node, bool, NodeHash> m_free;
-};
-
-/**
- * @brief An OccupancyMap seen as a continuous space for rrt() and rrt_star(): points inside
- * `bounds` with `margin` of free space around them.
- *
- * The margin is the map's own clearance query (see is_clear()). A segment is checked at points half
- * a voxel apart on a grid map, 0.1 m apart on any other.
- */
-template <OccupancyMap M>
-class OccupancySpace {
-public:
-	OccupancySpace(const M& map, const Eigen::AlignedBox3d& bounds, double margin, bool unknown_is_free)
-	    : m_map(map), m_bounds(bounds), m_margin(margin), m_unknown_is_free(unknown_is_free) {
-		if constexpr (GridMap<M>) {
-			m_check_step = map.resolution() / 2.0;
-		}
-	}
-
-	bool is_free(const Eigen::Vector3d& p) const {
-		return m_bounds.contains(p) && is_clear(m_map, p, m_margin, m_unknown_is_free);
-	}
-
-	bool segment_free(const Eigen::Vector3d& a, const Eigen::Vector3d& b) const {
-		const double length = (b - a).norm();
-		const int steps = std::max(1, static_cast<int>(std::ceil(length / m_check_step)));
-		for (int i = 0; i <= steps; ++i) {
-			if (!is_free(a + (b - a) * (static_cast<double>(i) / steps))) return false;
-		}
-		return true;
-	}
-
-	Eigen::Vector3d lower_bound() const { return m_bounds.min(); }
-	Eigen::Vector3d upper_bound() const { return m_bounds.max(); }
-
-private:
-	const M& m_map;
-	Eigen::AlignedBox3d m_bounds;
-	double m_margin;
-	bool m_unknown_is_free;
-	double m_check_step = 0.1;  ///< m between the points of a segment that are checked; half a voxel on a grid map
 };
 
 }

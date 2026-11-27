@@ -1,7 +1,7 @@
 #pragma once
 
-#include "planning/utils/search_spaces.hpp"
-#include "planning/utils/voxel_cost.hpp"
+#include "planning/search_spaces/grid_map_search_space.hpp"
+#include "planning/costs/move_cost.hpp"
 
 #include <Eigen/Core>
 
@@ -18,10 +18,10 @@ namespace path3d {
  *
  * Keep it for one search only: it holds a reference to the space.
  */
-template <GridMap M, VoxelCost Cost>
-class GridLineCost {
+template <GridMap M, MoveCost Cost>
+class GridLineOfSightCost {
 public:
-	explicit GridLineCost(const GridMapSearchSpace<M, Cost>& space) : m_space(space) {}
+	explicit GridLineOfSightCost(const GridMapSearchSpace<M, Cost>& space) : m_space(space) {}
 
 	std::optional<double> operator()(const Eigen::Vector3i& a, const Eigen::Vector3i& b) const {
 		const Eigen::Vector3d from = a.cast<double>();

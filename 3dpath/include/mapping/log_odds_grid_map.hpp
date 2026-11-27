@@ -85,21 +85,25 @@ public:
 	}
 	Occupancy occupancy(const Eigen::Vector3d& p) const { return occupancy_at(index_of(p)); }
 
-	/// Whether every voxel within `radius_voxels` voxels of `index` (a ball) may be flown through.
-	bool is_clear_at(const Eigen::Vector3i& index, int radius_voxels, bool unknown_is_free) const {
+	/// The worst occupancy of the voxels within `radius_voxels` voxels of `index` (a ball): Occupied
+	/// if any is, else Unknown if any is, else Free. The scan stops at the first Occupied voxel.
+	Occupancy ball_occupancy_at(const Eigen::Vector3i& index, int radius_voxels) const {
+		Occupancy result = Occupancy::Free;
 		for (int dx = -radius_voxels; dx <= radius_voxels; ++dx) {
 			for (int dy = -radius_voxels; dy <= radius_voxels; ++dy) {
 				for (int dz = -radius_voxels; dz <= radius_voxels; ++dz) {
 					if (dx * dx + dy * dy + dz * dz > radius_voxels * radius_voxels) continue;
-					if (!is_passable(occupancy_at(index + Eigen::Vector3i(dx, dy, dz)), unknown_is_free)) return false;
+					const Occupancy occupancy = occupancy_at(index + Eigen::Vector3i(dx, dy, dz));
+					if (occupancy == Occupancy::Occupied) return occupancy;
+					result = worse(result, occupancy);
 				}
 			}
 		}
-		return true;
+		return result;
 	}
 	/// The same for a ball of `radius` m around `p`: the radius is rounded up to whole voxels.
-	bool is_clear(const Eigen::Vector3d& p, double radius, bool unknown_is_free) const {
-		return is_clear_at(index_of(p), static_cast<int>(std::ceil(radius / m_resolution)), unknown_is_free);
+	Occupancy ball_occupancy(const Eigen::Vector3d& p, double radius) const {
+		return ball_occupancy_at(index_of(p), static_cast<int>(std::ceil(radius / m_resolution)));
 	}
 
 	/// 0 (the unknown prior) for a voxel never observed.

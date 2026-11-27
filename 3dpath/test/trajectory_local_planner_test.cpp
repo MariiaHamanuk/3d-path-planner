@@ -86,7 +86,7 @@ std::vector<Eigen::Vector3d> positions(const Trajectory& trajectory) {
 
 /// Whether the straight lines from point to point stay out of the occupied voxels (no margin).
 bool clear_of_obstacles(const LogOddsGridMap& map, const std::vector<Eigen::Vector3d>& points) {
-	const OccupancySpace<LogOddsGridMap> space(map, Eigen::AlignedBox3d(Eigen::Vector3d::Constant(-1000), Eigen::Vector3d::Constant(1000)), 0.0, true);
+	const ContinuousSearchSpace<LogOddsGridMap> space(map, Eigen::AlignedBox3d(Eigen::Vector3d::Constant(-1000), Eigen::Vector3d::Constant(1000)), 0.0, true);
 	for (std::size_t i = 1; i < points.size(); ++i) {
 		if (!space.segment_free(points[i - 1], points[i])) return false;
 	}

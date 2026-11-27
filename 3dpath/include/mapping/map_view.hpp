@@ -6,7 +6,6 @@
 #include <Eigen/Core>
 
 #include <concepts>
-#include <cstddef>
 #include <cstdint>
 
 namespace path3d {
@@ -74,16 +73,15 @@ concept OccupancyMap = MapViewType<V> && requires(const V& map, const Eigen::Vec
 };
 
 /// Regular voxel grid with integer indices: enables A*, Theta*, JPS, ...
-/// `Index` names a voxel (for now always an Eigen::Vector3i) and `IndexHash` hashes it, in the way
-/// the map's storage makes cheapest, so a search can keep per-voxel records in an unordered_map.
+/// `Index` names a voxel (for now always an Eigen::Vector3i). A map may also have an `IndexHash`
+/// that hashes it in the way its storage makes cheapest; a search uses it if it is there.
 template <class V>
 concept GridMap = OccupancyMap<V> && std::same_as<typename V::Index, Eigen::Vector3i> &&
-                  requires(const V& map, const typename V::IndexHash& hash, const Eigen::Vector3d& p, const typename V::Index& i) {
+                  requires(const V& map, const Eigen::Vector3d& p, const typename V::Index& i) {
 	                  { map.resolution() } -> std::convertible_to<double>;
 	                  { map.index_of(p) } -> std::same_as<typename V::Index>;
 	                  { map.center_of(i) } -> std::same_as<Eigen::Vector3d>;
 	                  { map.occupancy_at(i) } -> std::same_as<Occupancy>;
-	                  { hash(i) } -> std::convertible_to<std::size_t>;
                   };
 
 /// Distance to the nearest obstacle (ESDF-like).
@@ -98,50 +96,52 @@ concept GradientMap = DistanceMap<V> && requires(const V& map, const Eigen::Vect
 	{ map.gradient(p) } -> std::convertible_to<Eigen::Vector3d>;
 };
 
-/// A map that can say whether a ball around a point is free, in the way its storage makes cheapest
-/// (scan voxels, read a distance, prune a tree). Unknown space counts as free when `unknown_is_free`.
-/// Queries on a copy never change it (see ReplicatedMap), so the map may not cache on the fly.
+/// Of two occupancies, the one that is worse for flying: Occupied, then Unknown, then Free.
+inline Occupancy worse(Occupancy a, Occupancy b) {
+	const auto rank = [](Occupancy o) { return o == Occupancy::Occupied ? 2 : o == Occupancy::Unknown ? 1 : 0; };
+	return rank(a) >= rank(b) ? a : b;
+}
+
+/// A map that can say what is the worst occupancy in a ball around a point (Occupied if any part
+/// of it is, else Unknown if any part of it is, else Free), in the way its storage makes cheapest
+/// (scan voxels, read a distance, prune a tree). It is a fact about the map; whether Unknown may
+/// be flown through is for the planner to say. Queries on a copy never change it (see
+/// ReplicatedMap), so the map may not cache on the fly.
 template <class V>
-concept ClearanceMap = OccupancyMap<V> && requires(const V& map, const Eigen::Vector3d& p) {
-	{ map.is_clear(p, 0.0, true) } -> std::same_as<bool>;
+concept BallOccupancyMap = OccupancyMap<V> && requires(const V& map, const Eigen::Vector3d& p) {
+	{ map.ball_occupancy(p, 0.0) } -> std::same_as<Occupancy>;
 };
 
 /// The same on the voxel grid: the ball of `radius_voxels` voxels around a voxel index.
 template <class V>
-concept GridClearanceMap = GridMap<V> && requires(const V& map, const typename V::Index& i) {
-	{ map.is_clear_at(i, 0, true) } -> std::same_as<bool>;
+concept GridBallOccupancyMap = GridMap<V> && requires(const V& map, const typename V::Index& i) {
+	{ map.ball_occupancy_at(i, 0) } -> std::same_as<Occupancy>;
 };
 
-/// Whether a voxel with this occupancy may be flown through.
-inline bool is_passable(Occupancy occupancy, bool unknown_is_free) {
-	return occupancy == Occupancy::Free || (unknown_is_free && occupancy == Occupancy::Unknown);
-}
-
-/// Whether a ball of `radius` m around `p` is free. Uses the map's own is_clear() when it has one;
-/// any other map is probed at `p` and at the six points `radius` away along the axes.
+/// The worst occupancy in the ball of `radius` m around `p`. Uses the map's own ball_occupancy()
+/// when it has one; any other map is probed at `p` and at the six points `radius` away along the axes.
 template <OccupancyMap M>
-bool is_clear(const M& map, const Eigen::Vector3d& p, double radius, bool unknown_is_free) {
-	if constexpr (ClearanceMap<M>) {
-		return map.is_clear(p, radius, unknown_is_free);
+Occupancy ball_occupancy(const M& map, const Eigen::Vector3d& p, double radius) {
+	if constexpr (BallOccupancyMap<M>) {
+		return map.ball_occupancy(p, radius);
 	} else {
-		if (!is_passable(map.occupancy(p), unknown_is_free)) return false;
+		Occupancy result = map.occupancy(p);
 		for (int axis = 0; axis < 3; ++axis) {
 			const Eigen::Vector3d offset = Eigen::Vector3d::Unit(axis) * radius;
-			if (!is_passable(map.occupancy(p + offset), unknown_is_free)) return false;
-			if (!is_passable(map.occupancy(p - offset), unknown_is_free)) return false;
+			result = worse(result, worse(map.occupancy(p + offset), map.occupancy(p - offset)));
 		}
-		return true;
+		return result;
 	}
 }
 
-/// Whether the ball of `radius_voxels` voxels around a voxel is free. Uses the map's own
-/// is_clear_at() when it has one; any other grid is probed like is_clear().
+/// The worst occupancy in the ball of `radius_voxels` voxels around a voxel. Uses the map's own
+/// ball_occupancy_at() when it has one; any other grid is probed like ball_occupancy().
 template <GridMap M>
-bool is_clear_at(const M& map, const Eigen::Vector3i& index, int radius_voxels, bool unknown_is_free) {
-	if constexpr (GridClearanceMap<M>) {
-		return map.is_clear_at(index, radius_voxels, unknown_is_free);
+Occupancy ball_occupancy_at(const M& map, const Eigen::Vector3i& index, int radius_voxels) {
+	if constexpr (GridBallOccupancyMap<M>) {
+		return map.ball_occupancy_at(index, radius_voxels);
 	} else {
-		return is_clear(map, map.center_of(index), radius_voxels * map.resolution(), unknown_is_free);
+		return ball_occupancy(map, map.center_of(index), radius_voxels * map.resolution());
 	}
 }
 

@@ -3,7 +3,7 @@
 #include "core/types.hpp"
 #include "mapping/map_view.hpp"
 #include "pipeline/clients.hpp"
-#include "planning/utils/search_spaces.hpp"
+#include "planning/search_spaces/continuous_search_space.hpp"
 #include "planning/core/local_planner.hpp"
 #include "planning/local/trajectory_planner_report.hpp"
 
@@ -351,13 +351,13 @@ private:
 	/// Shortens, rounds and samples `raw` into the path, with the speed limit of every point from
 	/// its curvature and slope.
 	void set_path(const std::vector<Eigen::Vector3d>& raw) {
-		const OccupancySpace<M> space = free_space(std::max(m_config.global_margin, m_config.margin));
+		const ContinuousSearchSpace<M> space = free_space(std::max(m_config.global_margin, m_config.margin));
 		resample(rounded(space, shortcut(space, raw)));
 		m_shared_path = std::make_shared<const std::vector<Eigen::Vector3d>>(m_points);
 	}
 
 	/// Skips the waypoints that a straight free line can skip.
-	static std::vector<Eigen::Vector3d> shortcut(const OccupancySpace<M>& space, const std::vector<Eigen::Vector3d>& points) {
+	static std::vector<Eigen::Vector3d> shortcut(const ContinuousSearchSpace<M>& space, const std::vector<Eigen::Vector3d>& points) {
 		std::vector<Eigen::Vector3d> result{points.front()};
 		std::size_t i = 0;
 		while (i + 1 < points.size()) {
@@ -371,7 +371,7 @@ private:
 
 	/// Replaces every corner by a quadratic Bezier curve from `corner_radius` before it to
 	/// `corner_radius` after it (less on short segments), where that curve is free.
-	std::vector<Eigen::Vector3d> rounded(const OccupancySpace<M>& space, const std::vector<Eigen::Vector3d>& corners) const {
+	std::vector<Eigen::Vector3d> rounded(const ContinuousSearchSpace<M>& space, const std::vector<Eigen::Vector3d>& corners) const {
 		std::vector<Eigen::Vector3d> curve{corners.front()};
 		for (std::size_t i = 1; i + 1 < corners.size(); ++i) {
 			const Eigen::Vector3d in = corners[i] - corners[i - 1];
@@ -629,8 +629,8 @@ private:
 	/// The first points ahead of `s` (up to `check_distance`) inside the margin of an obstacle, and in
 	/// an occupied voxel.
 	Blockage find_blockage(double s) const {
-		const OccupancySpace<M> margin = free_space(m_config.margin);
-		const OccupancySpace<M> touching = free_space(0.0);
+		const ContinuousSearchSpace<M> margin = free_space(m_config.margin);
+		const ContinuousSearchSpace<M> touching = free_space(0.0);
 		Blockage blockage;
 		for (std::size_t i = index_at(s); i < m_points.size() && m_s[i] <= s + m_config.check_distance; ++i) {
 			if (!blockage.margin_s && !margin.is_free(m_points[i])) blockage.margin_s = std::max(s, m_s[i]);
@@ -647,7 +647,7 @@ private:
 	/// to brake with `max_acceleration` for every point ahead.
 	std::vector<double> speed_limits(double stop_s, double from) const {
 		std::vector<double> cap = m_path_limit;
-		const OccupancySpace<M> caution = free_space(m_config.caution_margin);
+		const ContinuousSearchSpace<M> caution = free_space(m_config.caution_margin);
 		for (std::size_t i = index_at(from); i < m_points.size() && m_s[i] <= from + m_config.check_distance; ++i) {
 			if (cap[i] > m_config.caution_speed && !caution.is_free(m_points[i])) cap[i] = m_config.caution_speed;
 		}
@@ -773,9 +773,9 @@ private:
 
 	/// The map as a space with `margin` around every point; unbounded (the global planner keeps its
 	/// paths within its altitude limits).
-	OccupancySpace<M> free_space(double margin) const {
+	ContinuousSearchSpace<M> free_space(double margin) const {
 		const Eigen::AlignedBox3d everywhere(Eigen::Vector3d::Constant(-1e6), Eigen::Vector3d::Constant(1e6));
-		return OccupancySpace<M>(this->m_map.map(), everywhere, margin, m_config.unknown_is_free);
+		return ContinuousSearchSpace<M>(this->m_map.map(), everywhere, margin, m_config.unknown_is_free);
 	}
 
 	/// Whether a global planner can start a path at `position`: `global_margin` of free space around it.
