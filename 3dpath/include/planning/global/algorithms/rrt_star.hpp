@@ -1,6 +1,6 @@
 #pragma once
 
-#include "planning/algorithms/rrt.hpp"
+#include "planning/global/algorithms/rrt.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -33,20 +33,19 @@ struct RrtStarParams {
  *      (rewiring), and the costs of its whole subtree drop by the same amount.
  * It runs all iterations and returns the shortest path among the nodes that reach the goal.
  */
-template <int Dim, class S>
-    requires SamplingSpace<S, Dim>
-RrtResult<Dim> rrt_star(const S& space, const Vec<Dim>& start, const Vec<Dim>& goal, const RrtStarParams& params = {}) {
+template <SamplingSpace S>
+RrtResult rrt_star(const S& space, const Eigen::Vector3d& start, const Eigen::Vector3d& goal, const RrtStarParams& params = {}) {
 	struct TreeNode {
-		Vec<Dim> point;
+		Eigen::Vector3d point;
 		std::size_t parent;
 		double cost;
 		std::vector<std::size_t> children;  ///< needed to update the subtree after rewiring
 	};
 
-	RrtResult<Dim> result;
+	RrtResult result;
 	if (!space.is_free(start) || !space.is_free(goal)) return result;
 
-	detail::Sampler<Dim> sampler(space.lower_bound(), space.upper_bound(), goal, params.goal_bias, params.seed);
+	detail::Sampler sampler(space.lower_bound(), space.upper_bound(), goal, params.goal_bias, params.seed);
 	const double radius_squared = params.rewire_radius * params.rewire_radius;
 	std::vector<TreeNode> tree;
 	tree.push_back({start, 0, 0.0, {}});
@@ -54,9 +53,9 @@ RrtResult<Dim> rrt_star(const S& space, const Vec<Dim>& start, const Vec<Dim>& g
 	std::vector<std::size_t> subtree;
 
 	for (std::size_t iteration = 0; iteration < params.max_iterations; ++iteration) {
-		const Vec<Dim> sample = sampler.next();
+		const Eigen::Vector3d sample = sampler.next();
 		const std::size_t nearest = detail::nearest(tree, sample);
-		const Vec<Dim> new_point = steer(tree[nearest].point, sample, params.step_size);
+		const Eigen::Vector3d new_point = steer(tree[nearest].point, sample, params.step_size);
 		if (new_point == tree[nearest].point || !space.segment_free(tree[nearest].point, new_point)) continue;
 
 		near.clear();

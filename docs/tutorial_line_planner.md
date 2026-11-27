@@ -11,7 +11,8 @@ The finished code is already in the repository, so you can always look at it:
 
 | What | Where |
 |---|---|
-| the two planners | `3dpath/include/planning/line_planner.hpp` |
+| the global planner | `3dpath/include/planning/global/line_global_planner.hpp` |
+| the local planner | `3dpath/include/planning/local/line_local_planner.hpp` |
 | a program that flies the drone with them | `3dpath/apps/line_planner_demo.cpp` |
 | the script that runs it | `scripts/run_line_planner.sh` |
 | tests of the planners | `3dpath/test/line_planner_test.cpp` |
@@ -57,8 +58,8 @@ Create `3dpath/include/planning/my_planners.hpp`:
 
 #include "mapping/log_odds_grid_map.hpp"
 #include "pipeline/clients.hpp"
-#include "planning/global_planner.hpp"
-#include "planning/local_planner.hpp"
+#include "planning/core/global_planner.hpp"
+#include "planning/core/local_planner.hpp"
 
 using namespace path3d;
 
@@ -397,7 +398,7 @@ Our global planner is not clever: if the line is blocked, it makes the same line
 
 Unknown space is not treated as an obstacle here. A more careful planner may avoid it too.
 
-The finished planners in `line_planner.hpp` have these checks.
+The finished planners in `line_global_planner.hpp` and `line_local_planner.hpp` have these checks.
 
 ## Run the finished demo {#tutorial_run}
 

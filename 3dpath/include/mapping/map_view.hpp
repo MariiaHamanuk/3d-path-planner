@@ -72,7 +72,7 @@ concept OccupancyMap = MapViewType<V> && requires(const V& map, const Eigen::Vec
 	{ map.occupancy(p) } -> std::same_as<Occupancy>;
 };
 
-/// Regular voxel grid with integer indices: enables A*, Theta*, JPS, ...
+/// Regular voxel grid with integer indices (Eigen::Vector3i): enables A*, Theta*, JPS, ...
 template <class V>
 concept GridMap = OccupancyMap<V> &&
                   requires(const V& map, const Eigen::Vector3d& p, const Eigen::Vector3i& i) {
@@ -93,5 +93,54 @@ template <class V>
 concept GradientMap = DistanceMap<V> && requires(const V& map, const Eigen::Vector3d& p) {
 	{ map.gradient(p) } -> std::convertible_to<Eigen::Vector3d>;
 };
+
+/// Of two occupancies, the one that is worse for flying: Occupied, then Unknown, then Free.
+inline Occupancy worse(Occupancy a, Occupancy b) {
+	const auto rank = [](Occupancy o) { return o == Occupancy::Occupied ? 2 : o == Occupancy::Unknown ? 1 : 0; };
+	return rank(a) >= rank(b) ? a : b;
+}
+
+/// A map that can say what is the worst occupancy in a ball around a point (Occupied if any part
+/// of it is, else Unknown if any part of it is, else Free), in the way its storage makes cheapest
+/// (scan voxels, read a distance, prune a tree). It is a fact about the map; whether Unknown may
+/// be flown through is for the planner to say. Queries on a copy never change it (see
+/// ReplicatedMap), so the map may not cache on the fly.
+template <class V>
+concept BallOccupancyMap = OccupancyMap<V> && requires(const V& map, const Eigen::Vector3d& p) {
+	{ map.ball_occupancy(p, 0.0) } -> std::same_as<Occupancy>;
+};
+
+/// The same on the voxel grid: the ball of `radius_voxels` voxels around a voxel index.
+template <class V>
+concept GridBallOccupancyMap = GridMap<V> && requires(const V& map, const Eigen::Vector3i& i) {
+	{ map.ball_occupancy_at(i, 0) } -> std::same_as<Occupancy>;
+};
+
+/// The worst occupancy in the ball of `radius` m around `p`. Uses the map's own ball_occupancy()
+/// when it has one; any other map is probed at `p` and at the six points `radius` away along the axes.
+template <OccupancyMap M>
+Occupancy ball_occupancy(const M& map, const Eigen::Vector3d& p, double radius) {
+	if constexpr (BallOccupancyMap<M>) {
+		return map.ball_occupancy(p, radius);
+	} else {
+		Occupancy result = map.occupancy(p);
+		for (int axis = 0; axis < 3; ++axis) {
+			const Eigen::Vector3d offset = Eigen::Vector3d::Unit(axis) * radius;
+			result = worse(result, worse(map.occupancy(p + offset), map.occupancy(p - offset)));
+		}
+		return result;
+	}
+}
+
+/// The worst occupancy in the ball of `radius_voxels` voxels around a voxel. Uses the map's own
+/// ball_occupancy_at() when it has one; any other grid is probed like ball_occupancy().
+template <GridMap M>
+Occupancy ball_occupancy_at(const M& map, const Eigen::Vector3i& index, int radius_voxels) {
+	if constexpr (GridBallOccupancyMap<M>) {
+		return map.ball_occupancy_at(index, radius_voxels);
+	} else {
+		return ball_occupancy(map, map.center_of(index), radius_voxels * map.resolution());
+	}
+}
 
 }

@@ -1,5 +1,9 @@
 #pragma once
 
+#include "core/types.hpp"
+
+#include <Eigen/Core>
+
 #include <algorithm>
 #include <concepts>
 #include <cstddef>
@@ -12,33 +16,29 @@
 namespace path3d {
 
 /**
- * @brief Graph that A* can search must contain: hasshed nodes, check whether 
-* the node is free or not and weighted neighbors (callback for free neigbour 
- *including the cost of the step to it). We don't create a vector for every call
- *as this is heap allocation and it is slow and expensive for this task.
- *
+ * @brief A graph of voxels that A* can search: whether a voxel is free, and its free neighbors with
+ * the cost of the step to each. The neighbors come through a callback, not a vector, so an
+ * expansion allocates nothing.
  */
 template <class G>
-concept SearchGraph = requires(const G& graph, const typename G::Node& node) {
-	typename G::NodeHash;
+concept SearchGraph = requires(const G& graph, const Eigen::Vector3i& node) {
 	{ graph.is_free(node) } -> std::convertible_to<bool>;
-	graph.for_each_neighbor(node, [](const typename G::Node&, double) {});
+	graph.for_each_neighbor(node, [](const Eigen::Vector3i&, double) {});
 };
 
-/// Estimate of the remaining cost between two nodes. 
-// A* finds the cheapest path only when it's heuristic is not 
-/// overestimating. 
-template <class H, class Node>
-concept SearchHeuristic = std::regular_invocable<const H&, const Node&, const Node&> && std::convertible_to<std::invoke_result_t<const H&, const Node&, const Node&>, double>;
+/// Estimate of the remaining cost between two voxels. A* finds the cheapest path only when the
+/// heuristic does not overestimate.
+template <class H>
+concept SearchHeuristic = std::regular_invocable<const H&, const Eigen::Vector3i&, const Eigen::Vector3i&> &&
+                          std::convertible_to<std::invoke_result_t<const H&, const Eigen::Vector3i&, const Eigen::Vector3i&>, double>;
 
 /**
  * @brief Result of a graph search (path is empty when the goal was not reached)
  */
-template <class Node>
 struct SearchResult {
-	std::vector<Node> path; ///< start first, goal last
-	double cost = std::numeric_limits<double>::infinity(); ///< sum of the step costs of the path
-	std::size_t expanded = 0; ///< nodes whose neighbors were looked at
+	std::vector<Eigen::Vector3i> path;                       ///< start first, goal last
+	double cost = std::numeric_limits<double>::infinity();  ///< sum of the step costs of the path
+	std::size_t expanded = 0;                               ///< nodes whose neighbors were looked at
 
 	bool found() const { return !path.empty(); }
 };
@@ -53,11 +53,10 @@ struct SearchResult {
  *
  * @param max_expansions Gives up after this many nodes (just not to go into infinity)
  */
-template <SearchGraph G, class H>
-    requires SearchHeuristic<H, typename G::Node>
-SearchResult<typename G::Node> a_star(const G& graph, const typename G::Node& start, const typename G::Node& goal, const H& heuristic,
-std::size_t max_expansions = std::numeric_limits<std::size_t>::max()) {
-	using Node = typename G::Node;
+template <SearchGraph G, SearchHeuristic H>
+SearchResult a_star(const G& graph, const Eigen::Vector3i& start, const Eigen::Vector3i& goal, const H& heuristic,
+                    std::size_t max_expansions = std::numeric_limits<std::size_t>::max()) {
+	using Node = Eigen::Vector3i;
 	struct Visit {
 		double cost_from_start;
 		Node parent;
@@ -70,10 +69,10 @@ std::size_t max_expansions = std::numeric_limits<std::size_t>::max()) {
 		bool operator<(const QueueEntry& other) const { return estimated_total > other.estimated_total; }
 	};
 
-	SearchResult<Node> result;
+	SearchResult result;
 	if (!graph.is_free(start) || !graph.is_free(goal)) return result;
 
-	std::unordered_map<Node, Visit, typename G::NodeHash> visits;
+	std::unordered_map<Node, Visit, VoxelHash> visits;
 	std::priority_queue<QueueEntry> open;
 	visits.insert({start, Visit{0.0, start}});
 	open.push({heuristic(start, goal), 0.0, start});
@@ -105,8 +104,7 @@ std::size_t max_expansions = std::numeric_limits<std::size_t>::max()) {
 }
 
 struct ZeroHeuristic {
-	template <class Node>
-	double operator()(const Node&, const Node&) const { return 0.0; }
+	double operator()(const Eigen::Vector3i&, const Eigen::Vector3i&) const { return 0.0; }
 };
 
 /**
@@ -115,8 +113,8 @@ struct ZeroHeuristic {
  * Dijkstra search: A* without a heuristic. Finds the same cost as A*, expands more nodes.
  */
 template <SearchGraph G>
-SearchResult<typename G::Node> dijkstra(const G& graph, const typename G::Node& start, const typename G::Node& goal,
-std::size_t max_expansions = std::numeric_limits<std::size_t>::max()) {
+SearchResult dijkstra(const G& graph, const Eigen::Vector3i& start, const Eigen::Vector3i& goal,
+                      std::size_t max_expansions = std::numeric_limits<std::size_t>::max()) {
 	return a_star(graph, start, goal, ZeroHeuristic{}, max_expansions);
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
-#include "planning/search_planners.hpp"
+#include "planning/global/grid_global_planners.hpp"
+#include "planning/global/sampling_global_planners.hpp"
 
 #include <Eigen/Core>
 

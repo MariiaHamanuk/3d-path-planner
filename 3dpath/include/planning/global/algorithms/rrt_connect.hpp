@@ -1,6 +1,6 @@
 #pragma once
 
-#include "planning/algorithms/rrt.hpp"
+#include "planning/global/algorithms/rrt.hpp"
 
 #include <algorithm>
 #include <array>
@@ -30,37 +30,36 @@ struct RrtConnectParams {
  * it reaches it, the trees are connected and the path is found. Then the trees swap roles.
  * It usually finds a path much faster than RRT, and the path is as crooked.
  */
-template <int Dim, class S>
-    requires SamplingSpace<S, Dim>
-RrtResult<Dim> rrt_connect(const S& space, const Vec<Dim>& start, const Vec<Dim>& goal, const RrtConnectParams& params = {}) {
+template <SamplingSpace S>
+RrtResult rrt_connect(const S& space, const Eigen::Vector3d& start, const Eigen::Vector3d& goal, const RrtConnectParams& params = {}) {
 	struct TreeNode {
-		Vec<Dim> point;
+		Eigen::Vector3d point;
 		std::size_t parent;
 	};
 	using Tree = std::vector<TreeNode>;
 	enum class Extend { Trapped, Advanced, Reached };
 
-	RrtResult<Dim> result;
+	RrtResult result;
 	if (!space.is_free(start) || !space.is_free(goal)) return result;
 
 	/// One step of `tree` towards `target`; the second value is the node that got closest.
-	const auto extend = [&](Tree& tree, const Vec<Dim>& target) -> std::pair<Extend, std::size_t> {
+	const auto extend = [&](Tree& tree, const Eigen::Vector3d& target) -> std::pair<Extend, std::size_t> {
 		const std::size_t nearest = detail::nearest(tree, target);
 		if (tree[nearest].point == target) return {Extend::Reached, nearest};
-		const Vec<Dim> new_point = steer(tree[nearest].point, target, params.step_size);
+		const Eigen::Vector3d new_point = steer(tree[nearest].point, target, params.step_size);
 		if (!space.segment_free(tree[nearest].point, new_point)) return {Extend::Trapped, nearest};
 		tree.push_back({new_point, nearest});
 		return {new_point == target ? Extend::Reached : Extend::Advanced, tree.size() - 1};
 	};
 	/// Points from `node` up to the root of `tree`.
 	const auto to_root = [](const Tree& tree, std::size_t node) {
-		std::vector<Vec<Dim>> points{tree[node].point};
+		std::vector<Eigen::Vector3d> points{tree[node].point};
 		for (; node != 0; node = tree[node].parent) points.push_back(tree[tree[node].parent].point);
 		return points;
 	};
 
 	std::array<Tree, 2> trees{Tree{{start, 0}}, Tree{{goal, 0}}};  ///< 0 grows from the start, 1 from the goal
-	detail::Sampler<Dim> sampler(space.lower_bound(), space.upper_bound(), goal, 0.0, params.seed);
+	detail::Sampler sampler(space.lower_bound(), space.upper_bound(), goal, 0.0, params.seed);
 
 	bool connected = space.segment_free(start, goal);
 	std::size_t meet_start = 0;  ///< the meeting node in the start tree
@@ -69,7 +68,7 @@ RrtResult<Dim> rrt_connect(const S& space, const Vec<Dim>& start, const Vec<Dim>
 	for (std::size_t iteration = 0; iteration < params.max_iterations && !connected; ++iteration) {
 		const auto [status, new_node] = extend(trees[growing], sampler.next());
 		if (status != Extend::Trapped) {
-			const Vec<Dim> target = trees[growing][new_node].point;
+			const Eigen::Vector3d target = trees[growing][new_node].point;
 			Extend reach = Extend::Advanced;
 			std::size_t other_node = 0;
 			while (reach == Extend::Advanced) std::tie(reach, other_node) = extend(trees[1 - growing], target);
@@ -89,7 +88,7 @@ RrtResult<Dim> rrt_connect(const S& space, const Vec<Dim>& start, const Vec<Dim>
 	} else {
 		result.path = to_root(trees[0], meet_start);
 		std::reverse(result.path.begin(), result.path.end());
-		const std::vector<Vec<Dim>> rest = to_root(trees[1], meet_goal);
+		const std::vector<Eigen::Vector3d> rest = to_root(trees[1], meet_goal);
 		result.path.insert(result.path.end(), rest.begin() + 1, rest.end());  // the meeting point is in both
 	}
 	result.cost = 0.0;

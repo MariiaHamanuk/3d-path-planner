@@ -2,12 +2,24 @@
 
 #include <gtest/gtest.h>
 
+
 using namespace path3d;
 
 static_assert(ReplicatedMap<LogOddsGridMap>);
 static_assert(GridMap<LogOddsGridMap>);
+static_assert(BallOccupancyMap<LogOddsGridMap>);
+static_assert(GridBallOccupancyMap<LogOddsGridMap>);
 
 namespace {
+
+/// A map with no clearance query of its own: one occupied voxel at (5, 0, 0), the rest Free.
+class PlainMap : public MapView {
+public:
+	Occupancy occupancy(const Eigen::Vector3d& p) const {
+		return p.x() >= 5.0 && p.x() < 6.0 && p.y() >= 0.0 && p.y() < 1.0 && p.z() >= 0.0 && p.z() < 1.0 ? Occupancy::Occupied : Occupancy::Free;
+	}
+};
+static_assert(OccupancyMap<PlainMap> && !BallOccupancyMap<PlainMap>);
 
 /// A drone at the origin looking along +x at a flat wall `distance` m away.
 SensorFrame wall_frame(double distance, double stamp = 1.0) {
@@ -151,4 +163,34 @@ TEST(LogOddsMapper, KeyframeOfAnEmptyMapExists) {
 	const auto update = mapper.make_update(true);
 	ASSERT_TRUE(update.has_value());
 	EXPECT_TRUE(update->cells.empty());
+}
+
+TEST(BallOccupancy, GridMapReportsTheWorstVoxelOfTheBall) {
+	LogOddsGridMap map(1.0);
+	LogOddsUpdate update;
+	update.keyframe = true;
+	update.resolution = 1.0;
+	update.cells = {{.x = 5, .y = 0, .z = 0, .log_odds = 2.0f}, {.x = 0, .y = 0, .z = 0, .log_odds = -2.0f}};
+	map.apply(update);
+	EXPECT_EQ(map.ball_occupancy_at({0, 0, 0}, 0), Occupancy::Free);
+	EXPECT_EQ(map.ball_occupancy_at({0, 0, 0}, 1), Occupancy::Unknown);   // the neighbors were never seen
+	EXPECT_EQ(map.ball_occupancy_at({3, 0, 0}, 1), Occupancy::Unknown);
+	EXPECT_EQ(map.ball_occupancy_at({4, 0, 0}, 1), Occupancy::Occupied);  // the occupied voxel is in the ball
+	/// the free function takes the map's own query, and the radius is rounded up to voxels
+	EXPECT_EQ(ball_occupancy(map, Eigen::Vector3d(4.5, 0.5, 0.5), 0.5), Occupancy::Occupied);
+	EXPECT_EQ(ball_occupancy(map, Eigen::Vector3d(4.5, 0.5, 0.5), 0.5), map.ball_occupancy(Eigen::Vector3d(4.5, 0.5, 0.5), 0.5));
+}
+
+TEST(BallOccupancy, AnyOtherMapIsProbedOnTheAxes) {
+	const PlainMap map;
+	EXPECT_EQ(ball_occupancy(map, Eigen::Vector3d(0.5, 0.5, 0.5), 1.0), Occupancy::Free);
+	EXPECT_EQ(ball_occupancy(map, Eigen::Vector3d(4.5, 0.5, 0.5), 1.0), Occupancy::Occupied);  // +x probe lands in the voxel
+	EXPECT_EQ(ball_occupancy(map, Eigen::Vector3d(3.5, 0.5, 0.5), 1.0), Occupancy::Free);
+}
+
+TEST(BallOccupancy, WorseOrdersOccupiedUnknownFree) {
+	EXPECT_EQ(worse(Occupancy::Free, Occupancy::Unknown), Occupancy::Unknown);
+	EXPECT_EQ(worse(Occupancy::Unknown, Occupancy::Occupied), Occupancy::Occupied);
+	EXPECT_EQ(worse(Occupancy::Occupied, Occupancy::Free), Occupancy::Occupied);
+	EXPECT_EQ(worse(Occupancy::Free, Occupancy::Free), Occupancy::Free);
 }

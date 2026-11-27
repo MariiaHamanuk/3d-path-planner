@@ -13,16 +13,13 @@ namespace path3d {
  * underestimates a bit, so A* expands more nodes)
  */
 struct EuclideanHeuristic {
-	template <class Derived>
-	double operator()(const Eigen::MatrixBase<Derived>& a, const Eigen::MatrixBase<Derived>& b) const {
-		return (a - b).template cast<double>().norm();
-	}
+	double operator()(const Eigen::Vector3i& a, const Eigen::Vector3i& b) const { return (a - b).cast<double>().norm(); }
 };
 
 /**
  * @brief Exact cost on an empty 26-connected grid with steps 1, sqrt(2) and sqrt(3): moves along
  * the space diagonal as long as all three axes differ, then along a face diagonal, then straight.
- * The tightest admissible heuristic for GridGraph.
+ * The tightest admissible heuristic for GridMapSearchSpace.
  */
 struct OctileHeuristic {
 	double operator()(const Eigen::Vector3i& a, const Eigen::Vector3i& b) const {
@@ -37,10 +34,7 @@ struct OctileHeuristic {
  * is faster but its path is no longer guaranteed to be the shortest.
  */
 struct ManhattanHeuristic {
-	template <class Derived>
-	double operator()(const Eigen::MatrixBase<Derived>& a, const Eigen::MatrixBase<Derived>& b) const {
-		return (a - b).template cast<double>().cwiseAbs().sum();
-	}
+	double operator()(const Eigen::Vector3i& a, const Eigen::Vector3i& b) const { return (a - b).cast<double>().cwiseAbs().sum(); }
 };
 
 }

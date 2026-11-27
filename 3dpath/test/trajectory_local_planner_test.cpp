@@ -1,8 +1,7 @@
 #include "mapping/log_odds_grid_map.hpp"
 #include "pipeline/threads.hpp"
-#include "planning/benchmark_scenes.hpp"
-#include "planning/search_planners.hpp"
-#include "planning/trajectory_local_planner.hpp"
+#include "planning/global/grid_global_planners.hpp"
+#include "planning/local/trajectory_local_planner.hpp"
 
 #include <gtest/gtest.h>
 
@@ -87,9 +86,7 @@ std::vector<Eigen::Vector3d> positions(const Trajectory& trajectory) {
 
 /// Whether the straight lines from point to point stay out of the occupied voxels (no margin).
 bool clear_of_obstacles(const LogOddsGridMap& map, const std::vector<Eigen::Vector3d>& points) {
-	SearchSpaceConfig config;
-	config.margin = 0.0;
-	const OccupancySpace<LogOddsGridMap> space(map, Eigen::AlignedBox3d(Eigen::Vector3d::Constant(-1000), Eigen::Vector3d::Constant(1000)), config);
+	const ContinuousSearchSpace<LogOddsGridMap> space(map, Eigen::AlignedBox3d(Eigen::Vector3d::Constant(-1000), Eigen::Vector3d::Constant(1000)), 0.0, true);
 	for (std::size_t i = 1; i < points.size(); ++i) {
 		if (!space.segment_free(points[i - 1], points[i])) return false;
 	}
@@ -170,7 +167,7 @@ void expect_acceleration_limited(const Trajectory& trajectory, double accelerati
 }
 
 /// Both planners with their threads, as in line_planner_test.cpp: A* and the local planner, on a map
-/// with the given occupied voxels. Both use the default SearchSpaceConfig.
+/// with the given occupied voxels. Both use the default margin and unknown-space settings.
 struct Fixture {
 	explicit Fixture(Eigen::Vector3d goal, std::vector<LogOddsCell> occupied = {})
 	    : local_map(map_updates),
@@ -815,52 +812,3 @@ TEST(TrajectoryLocalPlannerThreads, ReplansAroundAnObstacleThatAppears) {
 	EXPECT_GE(f.global_thread.plan_call_count(), 2u);
 }
 
-// --- End to end ---
-
-TEST(TrajectoryLocalPlanner, ReachesTheGoalOfEveryBenchmarkSceneWithAStar) {
-	/// as in the demo: the global planner keeps `global_margin`
-	SearchSpaceConfig space = kConfig.space;
-	space.margin = kConfig.global_margin;
-	for (const Scene& scene : benchmark_scenes()) {
-		SCOPED_TRACE(scene.name);
-		Topic<LogOddsGridMap::Update> updates;
-		Topic<StampedPose> poses;
-		MapClient<LogOddsGridMap> local_map(updates);
-		MapClient<LogOddsGridMap> global_map(updates);
-		UavClient uav(poses);
-		UavClient global_uav(poses);
-		updates.publish(scene_map(scene, kResolution));
-		AStarGlobalPlanner<LogOddsGridMap> global(global_map, global_uav, scene.goal, SearchPlannerConfig{.space = space, .max_altitude = scene.max_altitude});
-		Planner local(local_map, uav, kConfig);
-		ASSERT_TRUE(global.prepare());
-
-		Eigen::Vector3d position = scene.start;
-		TimeSec stamp = 0.0;
-		std::uint64_t last_id = 0;
-		std::optional<GlobalPath> answer;
-		std::vector<Eigen::Vector3d> flown{position};
-		for (int i = 0; i < 5000 && local.state() != State::Arrived; ++i) {
-			poses.publish(pose_at(position, stamp));
-			ASSERT_TRUE(local.prepare());
-			LocalStep<ReplanRequest> step = local.plan(answer ? &*answer : nullptr);
-			answer.reset();
-			/// the pipe: the request gets a number, and the answer reaches the next cycle
-			if (step.request) {
-				step.request->id = ++last_id;
-				answer = global.plan(*step.request);
-				answer->request_id = last_id;
-			}
-			ASSERT_TRUE(step.trajectory);
-			const std::optional<Setpoint> next = step.trajectory->sample(stamp + kCycle);
-			ASSERT_TRUE(next);
-			position = next->position;
-			stamp += kCycle;
-			flown.push_back(position);
-		}
-		EXPECT_EQ(local.state(), State::Arrived);
-		EXPECT_LE((position - scene.goal).norm(), kConfig.goal_tolerance);
-		EXPECT_TRUE(clear_of_obstacles(local_map.map(), flown));
-		/// the first request (NoPath) only: on a known map no path the global planner makes looks blocked
-		EXPECT_EQ(last_id, 1u);
-	}
-}

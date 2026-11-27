@@ -1,6 +1,6 @@
 #include "pipeline/clients.hpp"
 #include "fake_map_view.hpp"
-#include "planning/global_planner.hpp"
+#include "planning/core/global_planner.hpp"
 
 #include <gtest/gtest.h>
 
