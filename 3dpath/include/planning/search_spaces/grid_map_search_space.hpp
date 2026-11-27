@@ -44,31 +44,6 @@ inline const std::array<GridStep, 26>& grid_steps() {
 	return steps;
 }
 
-/// General hash of a voxel index, for maps that bring none of their own.
-struct VoxelHash {
-	std::size_t operator()(const Eigen::Vector3i& voxel) const {
-		std::uint64_t key = static_cast<std::uint32_t>(voxel.x());
-		key = key * 0x9e3779b97f4a7c15ULL ^ static_cast<std::uint32_t>(voxel.y());
-		key = key * 0x9e3779b97f4a7c15ULL ^ static_cast<std::uint32_t>(voxel.z());
-		key ^= key >> 33;
-		key *= 0xff51afd7ed558ccdULL;
-		key ^= key >> 33;
-		return static_cast<std::size_t>(key);
-	}
-};
-
-/// The hash a search keeps voxels in a hash map with: the map's own IndexHash if it has one (it
-/// knows its storage), otherwise VoxelHash. A map is not required to have one.
-template <class M>
-struct IndexHashOf {
-	using type = VoxelHash;
-};
-template <class M>
-    requires requires { typename M::IndexHash; }
-struct IndexHashOf<M> {
-	using type = typename M::IndexHash;
-};
-
 /**
  * @brief The box a search may use: the box around start and goal grown by `padding`, cut to
  * [min_altitude, max_altitude] in z. The cut never leaves the start or the goal outside.
@@ -98,9 +73,6 @@ inline Eigen::AlignedBox3d search_bounds(const Eigen::Vector3d& start, const Eig
 template <GridMap M, MoveCost Cost = LengthCost>
 class GridMapSearchSpace {
 public:
-	using Node = typename M::Index;
-	using NodeHash = typename IndexHashOf<M>::type;
-
 	GridMapSearchSpace(const M& map, const Eigen::AlignedBox3d& bounds, double margin, bool unknown_is_free, Cost cost = {})
 	    : m_map(map),
 	      m_lower(map.index_of(bounds.min())),
@@ -109,7 +81,7 @@ public:
 	      m_unknown_is_free(unknown_is_free),
 	      m_cost(std::move(cost)) {}
 
-	bool is_free(const Node& node) const {
+	bool is_free(const Eigen::Vector3i& node) const {
 		if ((node.array() < m_lower.array()).any() || (node.array() > m_upper.array()).any()) return false;
 		const auto cached = m_free.find(node);
 		if (cached != m_free.end()) return cached->second;
@@ -119,9 +91,9 @@ public:
 	}
 
 	template <class Visit>
-	void for_each_neighbor(const Node& node, Visit&& visit) const {
+	void for_each_neighbor(const Eigen::Vector3i& node, Visit&& visit) const {
 		for (const GridStep& step : grid_steps()) {
-			const Node neighbor = node + step.offset;
+			const Eigen::Vector3i neighbor = node + step.offset;
 			if (!is_free(neighbor)) continue;
 			visit(neighbor, m_cost(node, neighbor, m_map.occupancy_at(neighbor)));
 		}
@@ -132,12 +104,12 @@ public:
 
 private:
 	const M& m_map;
-	Node m_lower;
-	Node m_upper;
+	Eigen::Vector3i m_lower;
+	Eigen::Vector3i m_upper;
 	int m_margin_voxels;
 	bool m_unknown_is_free;
 	Cost m_cost;
-	mutable std::unordered_map<Node, bool, NodeHash> m_free;
+	mutable std::unordered_map<Eigen::Vector3i, bool, VoxelHash> m_free;
 };
 
 }

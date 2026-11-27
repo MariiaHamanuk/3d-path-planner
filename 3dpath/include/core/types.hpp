@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <numbers>
 #include <optional>
@@ -15,6 +16,19 @@
 namespace path3d {
 
 using TimeSec = double;  ///< seconds, simulation clock
+
+/// Hash of a voxel index (an Eigen::Vector3i), for unordered containers.
+struct VoxelHash {
+	std::size_t operator()(const Eigen::Vector3i& voxel) const {
+		std::uint64_t key = static_cast<std::uint32_t>(voxel.x());
+		key = key * 0x9e3779b97f4a7c15ULL ^ static_cast<std::uint32_t>(voxel.y());
+		key = key * 0x9e3779b97f4a7c15ULL ^ static_cast<std::uint32_t>(voxel.z());
+		key ^= key >> 33;
+		key *= 0xff51afd7ed558ccdULL;
+		key ^= key >> 33;
+		return static_cast<std::size_t>(key);
+	}
+};
 
 /**
  * @brief Which camera an image or calibration belongs to.

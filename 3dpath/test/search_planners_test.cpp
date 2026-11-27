@@ -11,9 +11,6 @@
 using namespace path3d;
 
 static_assert(SearchGraph<GridMapSearchSpace<LogOddsGridMap>>);
-static_assert(std::same_as<GridMapSearchSpace<LogOddsGridMap>::NodeHash, LogOddsGridMap::IndexHash>);  // the map's own hash
-static_assert(std::same_as<IndexHashOf<int>::type, VoxelHash>);                                         // a map without one
-static_assert(LineCost<GridLineOfSightCost<LogOddsGridMap, LengthCost>, Eigen::Vector3i>);
 
 namespace {
 

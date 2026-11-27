@@ -43,11 +43,6 @@ struct LogOddsUpdate {
 class LogOddsGridMap : public MapView {
 public:
 	using Update = LogOddsUpdate;
-	using Index = Eigen::Vector3i;
-	/// Hashes an index as the voxel storage does: through its packed key.
-	struct IndexHash {
-		std::size_t operator()(const Index& index) const { return KeyHash{}(key_of(index)); }
-	};
 
 	/// Log-odds above this count as occupied, at or below it as free.
 	static constexpr float kOccupiedThreshold = 0.0f;

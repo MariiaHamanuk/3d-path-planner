@@ -15,16 +15,6 @@
 namespace path3d {
 
 /**
- * @brief The price of flying straight from one node to another: the cost of the line, or nullopt
- * when something is in the way. Any-angle search (lazy_theta_star()) takes it next to the graph,
- * because only the code that knows how nodes lie in space can walk along a line between them.
- * The cost of a line must not be below what the heuristic says for the same two nodes.
- */
-template <class L, class Node>
-concept LineCost = std::regular_invocable<const L&, const Node&, const Node&> &&
-                   std::same_as<std::invoke_result_t<const L&, const Node&, const Node&>, std::optional<double>>;
-
-/**
  * @brief Lazy Theta*: A* whose path is not tied to the grid.
  *
  * A* links every node to the neighbor it came from, so its path turns only at 45 degree steps.
@@ -39,15 +29,17 @@ concept LineCost = std::regular_invocable<const L&, const Node&, const Node&> &&
  * OctileHeuristic, which is exact only for paths along the grid. It is also the price of a line
  * that has not been checked yet.
  *
- * @param line_cost Checks a straight line and prices it (see LineCost).
+ * @param line_cost Checks the straight line between two voxels and prices it: its cost, or nullopt
+ *   when something is in the way. Only the code that knows how voxels lie in space can walk along
+ *   a line, so it comes next to the graph. A line must not cost less than the heuristic says.
  * @param max_expansions Gives up after this many expanded nodes.
  */
-template <SearchGraph G, class H, class L>
-    requires SearchHeuristic<H, typename G::Node> && LineCost<L, typename G::Node>
-SearchResult<typename G::Node> lazy_theta_star(const G& graph, const typename G::Node& start, const typename G::Node& goal,
-                                               const H& heuristic, const L& line_cost,
-                                               std::size_t max_expansions = std::numeric_limits<std::size_t>::max()) {
-	using Node = typename G::Node;
+template <SearchGraph G, SearchHeuristic H, class L>
+    requires std::regular_invocable<const L&, const Eigen::Vector3i&, const Eigen::Vector3i&> &&
+             std::same_as<std::invoke_result_t<const L&, const Eigen::Vector3i&, const Eigen::Vector3i&>, std::optional<double>>
+SearchResult lazy_theta_star(const G& graph, const Eigen::Vector3i& start, const Eigen::Vector3i& goal, const H& heuristic,
+                             const L& line_cost, std::size_t max_expansions = std::numeric_limits<std::size_t>::max()) {
+	using Node = Eigen::Vector3i;
 	struct Visit {
 		double cost_from_start;
 		Node parent;
@@ -60,10 +52,10 @@ SearchResult<typename G::Node> lazy_theta_star(const G& graph, const typename G:
 		bool operator<(const QueueEntry& other) const { return estimated_total > other.estimated_total; }
 	};
 
-	SearchResult<Node> result;
+	SearchResult result;
 	if (!graph.is_free(start) || !graph.is_free(goal)) return result;
 
-	std::unordered_map<Node, Visit, typename G::NodeHash> visits;
+	std::unordered_map<Node, Visit, VoxelHash> visits;
 	std::priority_queue<QueueEntry> open;
 	visits.insert({start, Visit{0.0, start}});
 	open.push({heuristic(start, goal), 0.0, start});

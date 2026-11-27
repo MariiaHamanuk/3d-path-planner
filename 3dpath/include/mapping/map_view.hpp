@@ -72,14 +72,12 @@ concept OccupancyMap = MapViewType<V> && requires(const V& map, const Eigen::Vec
 	{ map.occupancy(p) } -> std::same_as<Occupancy>;
 };
 
-/// Regular voxel grid with integer indices: enables A*, Theta*, JPS, ...
-/// `Index` names a voxel (for now always an Eigen::Vector3i). A map may also have an `IndexHash`
-/// that hashes it in the way its storage makes cheapest; a search uses it if it is there.
+/// Regular voxel grid with integer indices (Eigen::Vector3i): enables A*, Theta*, JPS, ...
 template <class V>
-concept GridMap = OccupancyMap<V> && std::same_as<typename V::Index, Eigen::Vector3i> &&
-                  requires(const V& map, const Eigen::Vector3d& p, const typename V::Index& i) {
+concept GridMap = OccupancyMap<V> &&
+                  requires(const V& map, const Eigen::Vector3d& p, const Eigen::Vector3i& i) {
 	                  { map.resolution() } -> std::convertible_to<double>;
-	                  { map.index_of(p) } -> std::same_as<typename V::Index>;
+	                  { map.index_of(p) } -> std::same_as<Eigen::Vector3i>;
 	                  { map.center_of(i) } -> std::same_as<Eigen::Vector3d>;
 	                  { map.occupancy_at(i) } -> std::same_as<Occupancy>;
                   };
@@ -114,7 +112,7 @@ concept BallOccupancyMap = OccupancyMap<V> && requires(const V& map, const Eigen
 
 /// The same on the voxel grid: the ball of `radius_voxels` voxels around a voxel index.
 template <class V>
-concept GridBallOccupancyMap = GridMap<V> && requires(const V& map, const typename V::Index& i) {
+concept GridBallOccupancyMap = GridMap<V> && requires(const V& map, const Eigen::Vector3i& i) {
 	{ map.ball_occupancy_at(i, 0) } -> std::same_as<Occupancy>;
 };
 

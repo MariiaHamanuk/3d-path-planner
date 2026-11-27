@@ -114,7 +114,7 @@ std::vector<Eigen::Vector3d> voxel_path_waypoints(const M& map, const std::vecto
  *   overestimate it.
  */
 template <class M, class H = OctileHeuristic, class Cost = LengthCost>
-    requires ReplicatedMap<M> && GridMap<M> && SearchHeuristic<H, Eigen::Vector3i> && MoveCost<Cost>
+    requires ReplicatedMap<M> && GridMap<M> && SearchHeuristic<H> && MoveCost<Cost>
 class AStarGlobalPlanner : public GlobalPlanner<M, ReplanRequest, GlobalPath> {
 public:
 	AStarGlobalPlanner(MapClient<M>& map, UavClient& uav, Eigen::Vector3d goal, SearchPlannerConfig config = {},
@@ -161,7 +161,7 @@ private:
  *   EuclideanHeuristic (OctileHeuristic overestimates them).
  */
 template <class M, class H = EuclideanHeuristic, class Cost = LengthCost>
-    requires ReplicatedMap<M> && GridMap<M> && SearchHeuristic<H, Eigen::Vector3i> && MoveCost<Cost>
+    requires ReplicatedMap<M> && GridMap<M> && SearchHeuristic<H> && MoveCost<Cost>
 class LazyThetaStarGlobalPlanner : public GlobalPlanner<M, ReplanRequest, GlobalPath> {
 public:
 	LazyThetaStarGlobalPlanner(MapClient<M>& map, UavClient& uav, Eigen::Vector3d goal, SearchPlannerConfig config = {},
@@ -198,10 +198,6 @@ private:
 	Cost m_cost;
 };
 
-/// Parameters of a sampling algorithm; the type picks the algorithm in SamplingGlobalPlanner.
-template <class P>
-concept SamplingParams = std::same_as<P, RrtParams> || std::same_as<P, RrtStarParams> || std::same_as<P, RrtConnectParams>;
-
 /**
  * @brief Global planner that runs a sampling algorithm (RRT, RRT* or RRT-Connect) in the free space of an
  * OccupancyMap, from the drone to a fixed goal.
@@ -212,7 +208,7 @@ concept SamplingParams = std::same_as<P, RrtParams> || std::same_as<P, RrtStarPa
  * @tparam M Map type; any OccupancyMap that can be replicated.
  * @tparam P RrtParams runs rrt(), RrtStarParams runs rrt_star(), RrtConnectParams runs rrt_connect().
  */
-template <class M, SamplingParams P = RrtStarParams>
+template <class M, class P = RrtStarParams>
     requires ReplicatedMap<M> && OccupancyMap<M>
 class SamplingGlobalPlanner : public GlobalPlanner<M, ReplanRequest, GlobalPath> {
 public:
@@ -234,13 +230,14 @@ public:
 			path.status = PlanStatus::Failed;
 			return path;
 		}
-		RrtResult<3> result;
+		RrtResult result;
 		if constexpr (std::same_as<P, RrtStarParams>) {
-			result = rrt_star<3>(space, *start, m_goal, params);
+			result = rrt_star(space, *start, m_goal, params);
 		} else if constexpr (std::same_as<P, RrtConnectParams>) {
-			result = rrt_connect<3>(space, *start, m_goal, params);
+			result = rrt_connect(space, *start, m_goal, params);
 		} else {
-			result = rrt<3>(space, *start, m_goal, params);
+			static_assert(std::same_as<P, RrtParams>, "P picks the algorithm: RrtParams, RrtStarParams or RrtConnectParams");
+			result = rrt(space, *start, m_goal, params);
 		}
 		if (!result.found()) {
 			path.status = PlanStatus::Failed;
