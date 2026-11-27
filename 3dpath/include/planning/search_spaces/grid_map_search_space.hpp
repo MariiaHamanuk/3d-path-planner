@@ -45,22 +45,6 @@ inline const std::array<GridStep, 26>& grid_steps() {
 }
 
 /**
- * @brief The box a search may use: the box around start and goal grown by `padding`, cut to
- * [min_altitude, max_altitude] in z. The cut never leaves the start or the goal outside.
- */
-inline Eigen::AlignedBox3d search_bounds(const Eigen::Vector3d& start, const Eigen::Vector3d& goal, double padding,
-                                         double min_altitude, double max_altitude) {
-	Eigen::AlignedBox3d box(start.cwiseMin(goal), start.cwiseMax(goal));
-	const double lowest = box.min().z();
-	const double highest = box.max().z();
-	box.min().array() -= padding;
-	box.max().array() += padding;
-	box.min().z() = std::min(std::max(box.min().z(), min_altitude), lowest);
-	box.max().z() = std::max(std::min(box.max().z(), max_altitude), highest);
-	return box;
-}
-
-/**
  * @brief A GridMap seen as a graph for a_star(): a node is a voxel index, its neighbors are the 26
  * voxels around it. What a step costs is up to `Cost` (a MoveCost; LengthCost by default).
  *

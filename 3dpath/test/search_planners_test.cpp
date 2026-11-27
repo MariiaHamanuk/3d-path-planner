@@ -1,5 +1,6 @@
 #include "mapping/log_odds_grid_map.hpp"
-#include "planning/global/search_planners.hpp"
+#include "planning/global/grid_global_planners.hpp"
+#include "planning/global/sampling_global_planners.hpp"
 
 #include <gtest/gtest.h>
 

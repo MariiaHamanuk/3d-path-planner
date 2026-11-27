@@ -25,8 +25,8 @@ digraph layers {
 
 | Layer | Files | Job |
 |---|---|---|
-| Planner | `planning/global/search_planners.hpp` | Talks to the system: takes a `path3d::ReplanRequest`, builds the search space on its map copy, runs the algorithm, and returns a `path3d::GlobalPath` (always: `Failed` when there is no path). |
-| Map adapter | `planning/search_spaces/grid_map_search_space.hpp` | Turns a map into what an algorithm can search: `path3d::GridMapSearchSpace` (voxels and their 26 neighbors) for A*, `path3d::GridLineOfSightCost` (`planning/costs/grid_line_of_sight_cost.hpp`, the price of a straight line between two voxels, for Lazy Theta*), `path3d::ContinuousSearchSpace` (`planning/search_spaces/continuous_search_space.hpp`: points and segments in meters) for RRT and RRT*, and for the local planner's free-space checks. Holds the safety rules: margin around the drone, search box, unknown space. |
+| Planner | `planning/global/grid_global_planners.hpp`, `planning/global/sampling_global_planners.hpp` | Talks to the system: takes a `path3d::ReplanRequest`, builds the search space on its map copy, runs the algorithm, and returns a `path3d::GlobalPath` (always: `Failed` when there is no path). |
+| Map adapter | `planning/search_spaces/grid_map_search_space.hpp` | Turns a map into what an algorithm can search: `path3d::GridMapSearchSpace` (voxels and their 26 neighbors) for A*, `path3d::GridLineOfSightCost` (`planning/search_spaces/grid_line_of_sight_cost.hpp`, the price of a straight line between two voxels, for Lazy Theta*), `path3d::ContinuousSearchSpace` (`planning/search_spaces/continuous_search_space.hpp`: points and segments in meters) for RRT and RRT*, and for the local planner's free-space checks. Holds the safety rules: margin around the drone, search box, unknown space. |
 | Algorithm | `planning/global/algorithms/a_star.hpp`, `lazy_theta_star.hpp`, `rrt.hpp`, `rrt_connect.hpp`, `rrt_star.hpp`, `heuristics.hpp` | Pure search. Constrained only by the concepts `path3d::SearchGraph` and `path3d::SamplingSpace`, so they can be tested on tiny made-up worlds. |
 
 ### The algorithms {#planning_algorithm_list}
@@ -101,7 +101,7 @@ Each planner is a `path3d::GlobalPlanner`, so it plugs into `path3d::GlobalPlann
 
 **A new map** works with these planners without changes when it satisfies the concepts of `mapping/map_view.hpp`: `path3d::ReplicatedMap` and `path3d::GridMap` for A*, `path3d::ReplicatedMap` and `path3d::OccupancyMap` for RRT and RRT*.
 
-**A new algorithm** is written against `path3d::SearchGraph` (graph search) or `path3d::SamplingSpace` (sampling), tested on small worlds like the ones in `test/search_algorithms_test.cpp`, and then wrapped in a planner like the ones in `search_planners.hpp`.
+**A new algorithm** is written against `path3d::SearchGraph` (graph search) or `path3d::SamplingSpace` (sampling), tested on small worlds like the ones in `test/search_algorithms_test.cpp`, and then wrapped in a planner like the ones in `grid_global_planners.hpp` and `sampling_global_planners.hpp`.
 
 ### Limitations {#planning_limitations}
 
