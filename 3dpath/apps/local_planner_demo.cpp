@@ -26,6 +26,7 @@
 #include "pipeline/threads.hpp"
 #include "planning/global_planner_factory.hpp"
 #include "planning/trajectory_local_planner.hpp"
+#include "profiling/collector.hpp"
 #include "visualization/log_odds_map_visualizer.hpp"
 #include "visualization/plan_visualizer.hpp"
 
@@ -41,7 +42,9 @@
 #include <numbers>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <thread>
+#include <vector>
 
 using namespace std::chrono_literals;
 
@@ -207,15 +210,25 @@ int main(int argc, char** argv) {
 	using namespace path3d;
 	using Map = LogOddsGridMap;
 
-	if (argc < 4) {
-		std::cerr << "usage: local_planner_demo <x> <y> <z> [world] [" << global_planner_names() << "]\n";
+	bool enable_profile = false;
+	std::vector<std::string> pos;
+	for (int i = 1; i < argc; ++i) {
+		if (std::string_view(argv[i]) == "--profile") {
+			enable_profile = true;
+		} else {
+			pos.emplace_back(argv[i]);
+		}
+	}
+
+	if (pos.size() < 3) {
+		std::cerr << "usage: local_planner_demo [--profile] <x> <y> <z> [world] [" << global_planner_names() << "]\n";
 		return 2;
 	}
-	const Eigen::Vector3d goal(std::stod(argv[1]), std::stod(argv[2]), std::stod(argv[3]));
-	const std::string planner_name = argc > 5 ? argv[5] : "astar";
+	const Eigen::Vector3d goal(std::stod(pos[0]), std::stod(pos[1]), std::stod(pos[2]));
+	const std::string planner_name = pos.size() > 4 ? pos[4] : "astar";
 
 	PipelineConfig config;
-	if (argc > 4) config.sim_reader.world_frame = argv[4];
+	if (pos.size() > 3) config.sim_reader.world_frame = pos[3];
 	config.mapping.keyframe_period = 1000ms;  // the planners' maps are ready sooner
 	config.mapping.publish_period = 0.1;
 	config.map_visualizer.rate_hz = 5.0;
@@ -281,6 +294,10 @@ int main(int argc, char** argv) {
 	std::cout << "flying from " << uav.position()->transpose() << " to " << goal.transpose() << " with " << planner_name << "\n";
 
 	// The planning threads, and the paths for Foxglove.
+	std::optional<profiling::Collector> profiler;
+	if (enable_profile) {
+		profiler.emplace("data/" + config.sim_reader.world_frame + "_" + planner_name + ".csv");
+	}
 	Pipe<GlobalPath, ReplanRequest> pipe;
 	FlightLog log(reports, pipe.up(), FlightLog::Limits{.close = local_config.space.margin});
 	PlanVisualizerConfig plan_visualizer_config;
@@ -321,6 +338,7 @@ int main(int argc, char** argv) {
 	}
 	local_thread.stop();
 	global_thread.stop();
+	mapping.stop();
 	log.update();
 	std::cout << ended << "\n";
 	log.summary();

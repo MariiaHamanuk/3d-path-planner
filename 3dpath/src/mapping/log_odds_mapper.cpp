@@ -1,4 +1,5 @@
 #include "mapping/log_odds_mapper.hpp"
+#include "profiling/scoped_timer.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -60,6 +61,7 @@ bool LogOddsMapper::update_voxel(Key key, float delta) {
 }
 
 void LogOddsMapper::integrate(const SensorFrame& frame) {
+	profiling::ScopedTime timer("mapper::integrate");
 	const cv::Mat& depth = frame.depth.image;
 	if (depth.empty() || depth.type() != CV_32FC1) return;
 	const CameraCalibration& cal = frame.depth_calibration;
@@ -115,6 +117,7 @@ void LogOddsMapper::integrate(const SensorFrame& frame) {
 
 std::optional<LogOddsMapper::Update> LogOddsMapper::make_update(bool keyframe) {
 	if (!keyframe && m_dirty.empty()) return std::nullopt;
+	profiling::ScopedTime timer(keyframe ? "mapper::make_keyframe" : "mapper::make_diff");
 	Update update;
 	update.stamp = m_map.stamp;
 	update.from_version = m_sent_version;

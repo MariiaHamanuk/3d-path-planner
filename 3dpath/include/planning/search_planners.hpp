@@ -10,6 +10,7 @@
 #include "planning/algorithms/rrt_connect.hpp"
 #include "planning/algorithms/rrt_star.hpp"
 #include "planning/global_planner.hpp"
+#include "profiling/scoped_timer.hpp"
 
 #include <Eigen/Core>
 
@@ -143,6 +144,7 @@ public:
 	    : GlobalPlanner<M, ReplanRequest, GlobalPath>(map, uav), m_goal(std::move(goal)), m_config(config), m_heuristic(heuristic) {}
 
 	GlobalPath plan(const ReplanRequest& request) override {
+		profiling::ScopedTime timer(std::same_as<H, ZeroHeuristic> ? "global_planner::dijkstra" : "global_planner::astar");
 		const M& map = this->m_map.map();
 		GlobalPath path;
 		path.stamp = map.stamp;
@@ -197,6 +199,7 @@ public:
 	    : GlobalPlanner<M, ReplanRequest, GlobalPath>(map, uav), m_goal(std::move(goal)), m_config(config), m_heuristic(heuristic) {}
 
 	GlobalPath plan(const ReplanRequest& request) override {
+		profiling::ScopedTime timer("global_planner::lazy_theta_star");
 		const M& map = this->m_map.map();
 		GlobalPath path;
 		path.stamp = map.stamp;
@@ -256,6 +259,9 @@ public:
 	    : GlobalPlanner<M, ReplanRequest, GlobalPath>(map, uav), m_goal(std::move(goal)), m_config(config), m_params(params) {}
 
 	GlobalPath plan(const ReplanRequest& request) override {
+		profiling::ScopedTime timer(std::same_as<P, RrtStarParams> ? "global_planner::rrt_star" :
+		                            std::same_as<P, RrtConnectParams> ? "global_planner::rrt_connect" :
+		                                                                "global_planner::rrt");
 		const M& map = this->m_map.map();
 		GlobalPath path;
 		path.stamp = map.stamp;

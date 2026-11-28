@@ -29,8 +29,8 @@ find_package(MAVSDK REQUIRED)
 # sim_reader.hpp is the ROS-facing I/O layer and exposes ROS types; everything else in the public
 # headers uses only Eigen + OpenCV + std types (consumers use SimReader through Reader).
 add_library(path3d src/core/threading.cpp src/io/sim_reader.cpp src/io/mavsdk_vehicle.cpp
-  src/mapping/log_odds_mapper.cpp src/visualization/log_odds_map_visualizer.cpp
-  src/visualization/plan_visualizer.cpp)
+  src/mapping/log_odds_mapper.cpp src/profiling/collector.cpp
+  src/visualization/log_odds_map_visualizer.cpp src/visualization/plan_visualizer.cpp)
 target_include_directories(path3d
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

@@ -6,6 +6,7 @@
 #include "planning/algorithms/map_adapters.hpp"
 #include "planning/local_planner.hpp"
 #include "planning/trajectory_planner_report.hpp"
+#include "profiling/scoped_timer.hpp"
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -155,6 +156,7 @@ public:
 	}
 
 	LocalStep<ReplanRequest> plan(const GlobalPath* new_route) override {
+		profiling::ScopedTime timer("local_planner::plan");
 		const StampedPose pose = *this->m_uav.pose();
 		if (!m_yaw) m_yaw = yaw_of(pose.pose.orientation);
 		measure(pose);
@@ -288,6 +290,7 @@ private:
 	/// Anything else (Failed, fewer than two distinct waypoints) delays the next request by
 	/// `replan_backoff`, and starts the backoff unless the drone is following a route or has arrived.
 	void take_route(const GlobalPath& route, const StampedPose& pose) {
+		profiling::ScopedTime timer("local_planner::take_route");
 		m_report.route = route.status;
 		m_report.route_request_id = route.request_id;
 		m_report.route_waypoints = route.waypoints.size();
@@ -434,6 +437,7 @@ private:
 	/// Following: continues the plan (or restarts it from the real drone), checks the arrival and the
 	/// path ahead, and plans the next `horizon`.
 	LocalStep<ReplanRequest> follow(const StampedPose& pose) {
+		profiling::ScopedTime timer("local_planner::follow");
 		MotionState state = current_state(pose);
 		const Eigen::Vector3d& position = pose.pose.position;
 
@@ -587,6 +591,7 @@ private:
 	/// free (the target lies on the edge of the free space) is replaced by the next one. If there is
 	/// no free point nearby it hovers and asks anyway; a Failed answer starts the backoff.
 	LocalStep<ReplanRequest> escape(const StampedPose& pose) {
+		profiling::ScopedTime timer("local_planner::escape");
 		const Eigen::Vector3d& position = pose.pose.position;
 		if (start_free(position)) {
 			m_state = TrajectoryPlannerState::Waiting;
