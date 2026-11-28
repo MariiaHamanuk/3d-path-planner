@@ -16,6 +16,17 @@ void write_csv_field(std::ostream& out, std::string_view text) {
 	out.put('"');
 }
 
+std::filesystem::path unique_output_path(const std::filesystem::path& path) {
+	if (!std::filesystem::exists(path)) return path;
+	const auto dir = path.parent_path();
+	const std::string stem = path.stem().string();
+	const std::string ext = path.extension().string();
+	for (std::size_t n = 1;; ++n) {
+		const auto candidate = dir / (stem + "_" + std::to_string(n) + ext);
+		if (!std::filesystem::exists(candidate)) return candidate;
+	}
+}
+
 }  // namespace
 
 std::atomic<Collector*> Collector::s_active{nullptr};
@@ -25,9 +36,10 @@ Collector::Collector(const std::filesystem::path& output_path, std::chrono::mill
 	if (output_path.has_parent_path() && !output_path.parent_path().empty()) {
 		std::filesystem::create_directories(output_path.parent_path());
 	}
-	m_out.open(output_path, std::ios::out | std::ios::trunc);
+	const std::filesystem::path actual_path = unique_output_path(output_path);
+	m_out.open(actual_path, std::ios::out | std::ios::trunc);
 	if (!m_out.is_open()) {
-		throw std::runtime_error("Failed to open profiler output file: " + output_path.string());
+		throw std::runtime_error("Failed to open profiler output file: " + actual_path.string());
 	}
 	m_out << "func,duration_us,start_s\n";
 	m_out.flush();

@@ -211,17 +211,24 @@ int main(int argc, char** argv) {
 	using Map = LogOddsGridMap;
 
 	bool enable_profile = false;
+	bool enable_viz = true;
+	bool enable_log = true;
 	std::vector<std::string> pos;
 	for (int i = 1; i < argc; ++i) {
-		if (std::string_view(argv[i]) == "--profile") {
+		const std::string_view arg(argv[i]);
+		if (arg == "--profile") {
 			enable_profile = true;
+		} else if (arg == "--no-viz") {
+			enable_viz = false;
+		} else if (arg == "--no-log") {
+			enable_log = false;
 		} else {
-			pos.emplace_back(argv[i]);
+			pos.emplace_back(arg);
 		}
 	}
 
 	if (pos.size() < 3) {
-		std::cerr << "usage: local_planner_demo [--profile] <x> <y> <z> [world] [" << global_planner_names() << "]\n";
+		std::cerr << "usage: local_planner_demo [--profile] [--no-viz] [--no-log] <x> <y> <z> [world] [" << global_planner_names() << "]\n";
 		return 2;
 	}
 	const Eigen::Vector3d goal(std::stod(pos[0]), std::stod(pos[1]), std::stod(pos[2]));
@@ -259,9 +266,12 @@ int main(int argc, char** argv) {
 	const auto latest_state = vehicle_state.subscribe_latest();
 	SimReader reader(config.sim_reader, sensors);
 	// After the reader, which brings up ROS: publishes the map for Foxglove.
-	LogOddsMapVisualizerConfig visualizer_config = config.map_visualizer;
-	visualizer_config.frame_id = config.sim_reader.world_frame;
-	LogOddsMapVisualizer visualizer(map_updates, visualizer_config);
+	std::optional<LogOddsMapVisualizer> visualizer;
+	if (enable_viz) {
+		LogOddsMapVisualizerConfig visualizer_config = config.map_visualizer;
+		visualizer_config.frame_id = config.sim_reader.world_frame;
+		visualizer.emplace(map_updates, visualizer_config);
+	}
 
 	// The planners, made before the drone is ready so that a wrong name fails at once.
 	MapClient<Map> global_map(map_updates, config.global_planning.map_client);
@@ -274,7 +284,7 @@ int main(int argc, char** argv) {
 		return 2;
 	}
 	Topic<TrajectoryPlannerReport> reports;
-	TrajectoryLocalPlanner<Map> local_planner(local_map, local_uav, local_config, &reports);
+	TrajectoryLocalPlanner<Map> local_planner(local_map, local_uav, local_config, enable_log ? &reports : nullptr);
 
 	// The vehicle, and the commander that sends it the trajectory.
 	Topic<Trajectory> trajectories;
@@ -299,47 +309,49 @@ int main(int argc, char** argv) {
 		profiler.emplace("data/" + config.sim_reader.world_frame + "_" + planner_name + ".csv");
 	}
 	Pipe<GlobalPath, ReplanRequest> pipe;
-	FlightLog log(reports, pipe.up(), FlightLog::Limits{.close = local_config.space.margin});
-	PlanVisualizerConfig plan_visualizer_config;
-	plan_visualizer_config.frame_id = config.sim_reader.world_frame;
-	PlanVisualizer plan_visualizer(pipe.down(), sensors.pose, trajectories, reports, plan_visualizer_config);
+	std::optional<FlightLog> log;
+	if (enable_log) {
+		log.emplace(reports, pipe.up(), FlightLog::Limits{.close = local_config.space.margin});
+	}
+	std::optional<PlanVisualizer> plan_visualizer;
+	if (enable_viz) {
+		PlanVisualizerConfig plan_visualizer_config;
+		plan_visualizer_config.frame_id = config.sim_reader.world_frame;
+		plan_visualizer.emplace(pipe.down(), sensors.pose, trajectories, reports, plan_visualizer_config);
+	}
 	GlobalPlanningThread<Map, GlobalPath, ReplanRequest> global_thread(*global_planner, pipe, std::nullopt, config.global_planning);
 	LocalPlanningThread<Map, GlobalPath, ReplanRequest> local_thread(local_planner, pipe, trajectories, config.local_planning);
 	global_thread.start();
 	local_thread.start();
 
-	// Log with a status line every second. At the goal the planner keeps the drone there (the demo
-	// must not end: the autopilot would go on extrapolating the last setpoint) until Ctrl-C, or until
-	// the drone stops taking our setpoints (disarmed, e.g. after a crash, or another mode).
+	// Log with a status line every second until arrival, Ctrl-C, or until the drone stops taking
+	// our setpoints (disarmed, e.g. after a crash, or another mode).
 	auto next_status = std::chrono::steady_clock::now();
-	bool arrived = false;
 	std::string ended = "stopped (Ctrl-C)";
 	while (!g_interrupted) {
-		log.update();
-		if (!arrived && log.arrived()) {
-			arrived = true;
-			std::cout << "arrived: holding the drone at the goal; press Ctrl-C to stop\n";
-			log.summary();
+		if (log) log->update();
+		const bool arrived = log ? log->arrived() : (uav.position() && (*uav.position() - goal).norm() <= local_config.goal_tolerance);
+		if (arrived) {
+			ended = "arrived";
+			break;
 		}
 		const auto state = latest_state->latest();
 		if (!state || !state->armed || state->mode != FlightMode::External) {
 			ended = state && !state->armed ? "stopped: the drone was disarmed (a crash?)" : "stopped: the drone left GUIDED mode";
 			break;
 		}
-		if (std::chrono::steady_clock::now() >= next_status) {
+		if (log && std::chrono::steady_clock::now() >= next_status) {
 			next_status += 1s;
-			if (!arrived) {
-				log.status(goal);
-				std::cout << "          requests " << local_thread.sent_request_count() << " (timed out " << local_thread.request_timeout_count() << ", stale answers "
-				          << local_thread.stale_route_count() << "), global plans " << global_thread.plan_call_count() << ", commander holds " << commander.hold_count() << "\n";
-			}
+			log->status(goal);
+			std::cout << "          requests " << local_thread.sent_request_count() << " (timed out " << local_thread.request_timeout_count() << ", stale answers "
+			          << local_thread.stale_route_count() << "), global plans " << global_thread.plan_call_count() << ", commander holds " << commander.hold_count() << "\n";
 		}
 		std::this_thread::sleep_for(100ms);
 	}
 	local_thread.stop();
 	global_thread.stop();
 	mapping.stop();
-	log.update();
+	if (log) log->update();
 	std::cout << ended << "\n";
-	log.summary();
+	if (log) log->summary();
 }

@@ -24,11 +24,15 @@ cd "$ROOT"
 BUILD=1
 CONFIG="scripts/config.cfg"
 PROFILER=""
+NO_VIZ=0
+NO_LOG=0
 ARGS=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -n|--no-build) BUILD=0; shift ;;
         -p|--profile) PROFILER=1; shift ;;
+        --no-viz) NO_VIZ=1; shift ;;
+        --no-log) NO_LOG=1; shift ;;
         -c|--config) CONFIG="$2"; shift 2 ;;
         *) ARGS+=("$1"); shift ;;
     esac
@@ -48,6 +52,11 @@ WORLD_NAME="${ARGS[3]:-$(basename "${ENV_WORLD:-${WORLD:-default}}" .world)}"
 ALGO="${ARGS[4]:-${ALGO:-astar}}"
 PROFILER="${PROFILER:-""}"
 
+EXTRA_ARGS=()
+[[ -n "$PROFILER" ]] && EXTRA_ARGS+=("--profile")
+[[ $NO_VIZ -eq 1 ]] && EXTRA_ARGS+=("--no-viz")
+[[ $NO_LOG -eq 1 ]] && EXTRA_ARGS+=("--no-log")
+
 source /opt/ros/jazzy/setup.bash
 
 if [[ $BUILD -eq 1 || ! -f install/setup.bash ]]; then
@@ -55,4 +64,4 @@ if [[ $BUILD -eq 1 || ! -f install/setup.bash ]]; then
 fi
 source install/setup.bash
 
-exec ros2 run path3d local_planner_demo "$X" "$Y" "$Z" "$WORLD_NAME" "$ALGO" "${PROFILER:+--profile}"
+exec ros2 run path3d local_planner_demo "$X" "$Y" "$Z" "$WORLD_NAME" "$ALGO" "${EXTRA_ARGS[@]}"
